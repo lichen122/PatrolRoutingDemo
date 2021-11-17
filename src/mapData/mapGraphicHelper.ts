@@ -4,6 +4,7 @@ import MapView from "@arcgis/core/views/MapView";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import TileLayer from "@arcgis/core/layers/TileLayer";
 import Graphic from "@arcgis/core/Graphic";
+import Geometry from "@arcgis/core/geometry/Geometry";
 import Point from "@arcgis/core/geometry/Point";
 import CIMSymbol from '@arcgis/core/symbols/CIMSymbol';
 import Color from "@arcgis/core/Color";
@@ -12,6 +13,8 @@ import TextSymbol from '@arcgis/core/symbols/TextSymbol';
 import SimpleLineSymbol from "@arcgis/core/symbols/SimpleLineSymbol";
 import Polyline from "@arcgis/core/geometry/Polyline";
 import { buildAdhocUDGraph, IGraphEdge, UDGraph, UDGraphVertex } from "../graphHelpers/UDGraph";
+import { IStaticRouteResult } from "../mapData/staticEsriRouteResult";
+
 
 function createVertexGraphics(v: UDGraphVertex, foreColor: Color, backColor: Color): Graphic[] {
 
@@ -53,12 +56,12 @@ function createVertexGraphics(v: UDGraphVertex, foreColor: Color, backColor: Col
   return [circleGraphic, textGraphic];
 }
 
-function createPathAnimationPointGraphic(pt: Point, color: Color): Graphic {
+export function createPathAnimationPointGraphic(pt: Point, color: Color): Graphic {
 
   const circleSymbol = {
     type: "simple-marker",
     color: color,
-    size: "10px",
+    size: "15px",
     outline: {
       color: Color.fromHex("#000"),
       width: 1
@@ -72,6 +75,24 @@ function createPathAnimationPointGraphic(pt: Point, color: Color): Graphic {
   });
 
   return pointGraphic;
+}
+
+export function createPathAnimationTrailGraphic(startPt: Point, color: Color): Graphic {
+  const lineSymbol = new SimpleLineSymbol({
+    color: color,
+    width: "5px",
+    style: "solid"
+  });
+
+  var polyline = new Polyline({ spatialReference: startPt.spatialReference });
+
+  var polylineGraphic = new Graphic({
+    attributes: {},
+    geometry: polyline,
+    symbol: lineSymbol
+  });
+
+  return polylineGraphic;
 }
 
 function createEdgeLineGraphic(v1: UDGraphVertex, v2: UDGraphVertex, e: IGraphEdge, color: Color): Graphic {
@@ -141,6 +162,125 @@ export function highLightUDGraph(hlLayer: GraphicsLayer, udg: UDGraph, color: Co
 
 }
 
+function createPointByLocationAndSpatialRef(location: number[], spatialRef: any): Point {
+  return new Point({
+    x : location[0],
+    y : location[1],
+    spatialReference : spatialRef
+  });
+}
+
+function doRoutePathMovingAnimation(
+  pointGraphic: Graphic,
+  newLocation: Point,
+  spatialRef: any): Promise<any> {
+
+    const startPoint = pointGraphic.geometry as Point,
+    endPoint = newLocation,
+    startLon = startPoint.longitude, startLat = startPoint.latitude,
+    startX = startPoint.x, startY = startPoint.y,
+    endLon = endPoint.longitude, endLat = endPoint.latitude,
+    endX = endPoint.x, endY =  endPoint.y,
+    offsetLon = (endLon - startLon), offsetLat = (endLat - startLat),
+    distanceLonLat = Math.sqrt(offsetLon**2 + offsetLat**2),
+    offsetX = endX - startX, offsetY = endY- startY,
+    needMultipleFrames = distanceLonLat > 0.00001,
+    isDocumentHidden = !!document.hidden,
+    unitDistanceForAnimation = 0.0004,
+    totalUnits = Math.max(1,Math.ceil(distanceLonLat / unitDistanceForAnimation)),
+    framesPerUnit = 8,
+    totalFrames = framesPerUnit * totalUnits,
+    // totalFrames = 12,
+    deltaX = offsetX/totalFrames, deltaY = offsetY/totalFrames;
+
+  // console.debug(`$Move Vehicle ${pointGraphic.attributes.displayName} distance: ${distance}, totalUnits: ${totalUnits}, totalFrames: ${totalFrames}`);
+  // Do animation move from start to end point
+  return new Promise((resolve) => {
+    let curX = startX, curY = startY;
+    let singleFrameCallback = (frameIndex: number): void => {
+      curX+=deltaX; // Step forward on x direction
+      curY+=deltaY; // Step forward on y direction
+
+      if(frameIndex < totalFrames && (curX < endX || curY < endY)) {
+        // only do next move if frameIndex not reach end and x,y direction not exceed destination position
+        movePoint([pointGraphic], curX, curY, spatialRef).then(()=> {
+          singleFrameCallback(frameIndex + 1);
+        });
+      } else {
+        resolve(true);
+      }
+    };
+
+    singleFrameCallback(0); // start animation frames
+  }).then(() => {
+    // ensure the graphics reach last point (end position) at the end of animation
+    return movePoint([pointGraphic], endX, endY, spatialRef);
+  });
+}
+
+export function animateSingleRoutePathMovement(pointGraphic: Graphic, trailGraphic: Graphic, path: Array<number[]>, spatialRef: any): Promise<any> {
+  if (!path || path.length === 0) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise(resolve => {
+
+    function moveOneStep(i: number): void {
+      const curNode = path[i];
+      const tgtPoint = createPointByLocationAndSpatialRef(curNode, spatialRef);
+
+      doRoutePathMovingAnimation(pointGraphic, tgtPoint, spatialRef).then(() => {
+
+        // Append moved path segment into trailGraphic
+        if (i > 0) {
+          const prevNode = path[i-1];
+          const prevPoint = createPointByLocationAndSpatialRef(prevNode, spatialRef);
+          const curTrailLine = trailGraphic.geometry.clone() as Polyline;
+          curTrailLine.addPath([prevPoint, tgtPoint]);
+          trailGraphic.set("geometry", curTrailLine);
+        }
+
+        // Determine next move in path
+        if (i >= path.length - 1) {
+          resolve(null);
+        } else {
+          setTimeout(() => {
+            moveOneStep(i + 1);
+          }, 10);
+        }
+      });
+    }
+
+    moveOneStep(0);
+  });
+}
+
+export function animateTraverseByRoutePaths(pointGraphic: Graphic, trailGraphic: Graphic, routeResult: IStaticRouteResult): Promise<any> {
+  if (!routeResult || !routeResult.paths || routeResult.paths.length === 0) {
+    return Promise.resolve(null);
+  }
+
+  const paths = routeResult.paths,
+    spatialRef = routeResult.spatialReference;
+
+  return new Promise(resolve => {
+    function  traverseOnePath(i: number) {
+      const curPath = paths[i];
+      animateSingleRoutePathMovement(pointGraphic, trailGraphic, curPath, spatialRef).then(() => {
+        if (i >= paths.length - 1) {
+          resolve(null);
+        } else {
+          setTimeout(() => {
+            traverseOnePath(i + 1);
+          }, 1500);
+        }
+      });
+    }
+
+    traverseOnePath(0);
+  });
+}
+
 export function animateTraverseByPathVertices(animationLayer: GraphicsLayer, udg: UDGraph, pathVertexIds: number[]): Promise<any> {
   if (pathVertexIds.length < 2) return Promise.resolve(); // no edge in path
 
@@ -204,7 +344,7 @@ function doGraphicsMovingAnimation(
 
       if(frameIndex < totalFrames && (curX < endX || curY < endY)) {
         // only do next move if frameIndex not reach end and x,y direction not exceed destination position
-        movePoint([pointGraphic], curX, curY).then(()=> {
+        movePoint([pointGraphic], curX, curY, null).then(()=> {
           singleFrameCallback(frameIndex + 1);
         });
       } else {
@@ -215,15 +355,15 @@ function doGraphicsMovingAnimation(
     singleFrameCallback(0); // start animation frames
   }).then(() => {
     // ensure the graphics reach last point (end position) at the end of animation
-    return movePoint([pointGraphic], endX, endY);
+    return movePoint([pointGraphic], endX, endY, null);
   });
 }
 
-function movePoint(graphics: Array<any>, x:number, y:number): Promise<any> {
+function movePoint(graphics: Array<any>, x:number, y:number, spatialRef: any): Promise<any> {
   return new Promise((res) => {
     requestAnimationFrame(() => {
       for (let graphic of graphics) {
-        graphic.set("geometry", new Point({x: x, y: y}));
+        graphic.set("geometry", new Point({x: x, y: y, spatialReference : spatialRef}));
       }
 
       res(true);
