@@ -22,12 +22,13 @@ import BasemapGalleryItem from "@arcgis/core/widgets/BasemapGallery/support/Base
 import { createPathAnimationPointGraphic, createPathAnimationTrailGraphic, drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices, animateTraverseByRoutePaths } from "../mapData/mapGraphicHelper";
 import { UDGraph, findOptimumExpandingSubGraph } from 'src/graphHelpers/UDGraph';
 import { trySolveChinesePostmanProblem } from 'src/graphHelpers/ChinesePostman';
-import { getStops,solve,arcgisServerUrl } from '../graphHelpers/ESRISolveModel';
+import { arcgisServerUrl,getStops,solve,getCrossTimes } from '../graphHelpers/ESRISolveModel';
 import * as Blossom from "../graphHelpers/blossom";
 import { findEularianTour, IEularianGraphEdge } from "../graphHelpers/EularianPath";
 import TextSymbol from '@arcgis/core/symbols/TextSymbol';
 import SimpleMarkerSymbol from '@arcgis/core/symbols/SimpleMarkerSymbol';
 import { staticRouteResult } from 'src/mapData/staticEsriRouteResult';
+
 
 @Component({
   selector: 'app-root',
@@ -223,35 +224,50 @@ export class AppComponent implements OnInit, OnDestroy {
           solvedResult = routeResult;
             if(routeResult.route&&routeResult.route.geometry){
                 pathLayer.add(new Graphic({geometry:routeResult.route.geometry}));
-            }
-            if(routeResult.stops&&routeResult.stops.length>0){
-                for (let index = 0; index < routeResult.stops.length; index++) {
-                    let stop = routeResult.stops[index];
-                    let stopGraphic = new Graphic({
-                        geometry:stop.geometry,
-                        symbol:new SimpleMarkerSymbol({
-                            style: "circle",
-                            color: "blue",
-                            size:  16,
-                            outline: {
-                                type: "simple-line",
-                                style: "solid",
-                                color: "black",
-                                width: 2
-                            }
-                        })
-                    });
-                    stopsLayer.graphics.add(stopGraphic);
-                    let stopLabelGraphic = new Graphic({
-                        symbol:new TextSymbol({
-                            text:stop.attributes.Sequence,
-                            color:"white",
-                        }),
-                        geometry:stop.geometry
-                    });
-                    stopsLayer.graphics.add(stopLabelGraphic);
+                if(routeResult.stops&&routeResult.stops.length>0){
+                    for (let index = 0; index < routeResult.stops.length; index++) {
+                        let stop = routeResult.stops[index];
+                        let stopGraphic = new Graphic({
+                            geometry:stop.geometry,
+                            symbol:new SimpleMarkerSymbol({
+                                style: "circle",
+                                color: "blue",
+                                size:  16,
+                                outline: {
+                                    type: "simple-line",
+                                    style: "solid",
+                                    color: "black",
+                                    width: 2
+                                }
+                            })
+                        });
+                        stopsLayer.graphics.add(stopGraphic);
+                        let stopLabelGraphic = new Graphic({
+                            symbol:new TextSymbol({
+                                text:stop.attributes.Sequence,
+                                color:"white",
+                            }),
+                            geometry:stop.geometry
+                        });
+                        stopsLayer.graphics.add(stopLabelGraphic);
+
+                        if(index!=0 && stop.attributes.Name.indexOf("mid_")>=0){
+                            let crossTimesGraphic = new Graphic({
+                                symbol:new TextSymbol({
+                                    text:getCrossTimes(stop, routeResult.route.geometry).toString(),
+                                    color:"black",
+                                    xoffset: 15,
+                                    yoffset: 15,
+                                }),
+                                geometry:stop.geometry
+                            });
+                            stopsLayer.graphics.add(crossTimesGraphic);
+                        }
+                        
+                    }
                 }
             }
+            
         }
     }).then(() => {
       return self.delay(2000);
