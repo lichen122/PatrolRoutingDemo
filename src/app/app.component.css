@@ -1,0 +1,25 @@
+@import 'https://js.arcgis.com/4.21/@arcgis/core/assets/esri/themes/light/main.css';
+.esri-view {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+#mapViewNode {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#controlPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  width: 300px;
+
+  display: flex;
+  background-color: #fff;
+  opacity: 0.7;
+}

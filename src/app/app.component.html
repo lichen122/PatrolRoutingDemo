@@ -1,0 +1,18 @@
+<!-- Map Div -->
+<div #mapViewNode></div>
+<div id="controlPanel" #controlPanelNode >
+  <ul>
+    <li>
+      <h2>Simple CPP</h2>
+      <Button (click)="initSimpleCPPClick($event)">Initialize Graph</Button>
+      <button (click)="runGraphTest($event)">Run Graph Test</button>
+    </li>
+    <li>
+      <h2>BFS Expanding</h2>
+      Starting Vertex: <input type="number" min="1" max="82" [(ngModel)]="expandingStartVertexId"  /><button (click)="tryExpandingVertexGroup($event)" >Try Expanding</button>
+    </li>
+    <li>
+      <h2>...</h2>
+    </li>
+  </ul>
+</div>
