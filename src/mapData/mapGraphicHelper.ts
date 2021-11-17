@@ -279,7 +279,7 @@ export function animateTraverseByRoutePaths(pointGraphic: Graphic, trailGraphic:
         } else {
           setTimeout(() => {
             traverseOnePath(i + 1);
-          }, 1500);
+          }, 800);
         }
       });
     }

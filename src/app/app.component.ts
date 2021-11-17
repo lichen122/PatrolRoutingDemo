@@ -58,13 +58,6 @@ export class AppComponent implements OnInit, OnDestroy {
     const defaultBasemap = "streets";
     const container = this.mapViewEl.nativeElement;
 
-    // // Required: Set this property to insure assets resolve correctly.
-    // esriConfig.apiKey = "";
-    // esriConfig.assetsPath = './assets';
-
-    // self._minZoomLevel = isMobile ? 2 : 3;
-    // self._maxZoomLevel = 20;
-
     self._map = new ArcGISMap({
       basemap: defaultBasemap
     });
@@ -89,21 +82,9 @@ export class AppComponent implements OnInit, OnDestroy {
     view.popup.collapseEnabled = false; // disable popup collapse
 
     // Add Layers into map
-    var simpleCPPLayer = new GraphicsLayer({
-      id: "simpleCPPLayer",
-      title: "SimpleCPP",
-      visible: true,
-    });
-
-    var bfsExpandingLayer = new GraphicsLayer({
-      id: "bfsExpandingLayer",
-      title: "BFSExpanding",
-      visible: true,
-    });
-
-    var pathAnimationLayer = new GraphicsLayer({
-      id: "pathAnimationLayer",
-      title: "PathAnimation",
+    var solveAnimationLayer = new GraphicsLayer({
+      id: "solveAnimationLayer",
+      title: "solveAnimation",
       visible: true,
     });
 
@@ -123,7 +104,7 @@ export class AppComponent implements OnInit, OnDestroy {
         url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/2"
     });
 
-    this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer, pathAnimationLayer]);
+    this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer, solveAnimationLayer]);
 
     // Bind map events
     view.on("click", self.onMapClick.bind(self));
@@ -203,10 +184,17 @@ export class AppComponent implements OnInit, OnDestroy {
     const self = this;
     const pathLayer = self._map?.layers.find(l=> l.id === "pathSolveLayer") as GraphicsLayer;
     const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
+    const solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer;
 
     //clear graphics
     pathLayer.graphics.removeAll();
     stopsLayer.graphics.removeAll();
+    solveAnimationLayer.graphics.removeAll();
+
+    // Add a new Graphic for the police vehicle
+    const pointGraphic = createPathAnimationPointGraphic(mPoint, Color.fromHex("#888800"));
+    const trailGraphic = createPathAnimationTrailGraphic(mPoint, Color.fromHex("#888800"));
+    solveAnimationLayer.addMany([pointGraphic, trailGraphic]);
 
     let clickedStop = {
         geometry:mPoint,
@@ -236,7 +224,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }).then(() => {
       self.isLoadingData = false;
       if (solvedResult) {
-        return self.animateSolveRouteResult(solvedResult);
+        return self.animateSolveRouteResult(solvedResult, solveAnimationLayer, pointGraphic, trailGraphic);
       }
 
       return null;
@@ -245,22 +233,18 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  animateSolveRouteResult(routeResult: any): Promise<any> {
+  animateSolveRouteResult(routeResult: any, layer: GraphicsLayer, pointGraphic: Graphic, trailGraphic: Graphic): Promise<any> {
     console.debug(`animateSolveRouteResult now...`);
     const self = this;
-    const layer = self._map?.layers.find(l => l.id ==="pathAnimationLayer") as GraphicsLayer;
 
     if (routeResult && layer) {
       const pathsGeometry = routeResult.route.geometry;
       const firstLocation = pathsGeometry.paths[0][0];
-      const firstPoint = new Point({
-        x : firstLocation[0],
-        y : firstLocation[1],
-        spatialReference : pathsGeometry.spatialReference
-      });
-      const pointGraphic = createPathAnimationPointGraphic(firstPoint, Color.fromHex("#888800"));
-      const trailGraphic = createPathAnimationTrailGraphic(firstPoint, Color.fromHex("#888800"));
-      layer.addMany([pointGraphic, trailGraphic]);
+      // const firstPoint = new Point({
+      //   x : firstLocation[0],
+      //   y : firstLocation[1],
+      //   spatialReference : pathsGeometry.spatialReference
+      // });
 
       return animateTraverseByRoutePaths(pointGraphic, trailGraphic, pathsGeometry);
     }
