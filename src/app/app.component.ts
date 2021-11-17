@@ -22,7 +22,7 @@ import BasemapGalleryItem from "@arcgis/core/widgets/BasemapGallery/support/Base
 import { drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices } from "../mapData/mapGraphicHelper";
 import { UDGraph, findOptimumExpandingSubGraph } from 'src/graphHelpers/UDGraph';
 import { trySolveChinesePostmanProblem } from 'src/graphHelpers/ChinesePostman';
-import { getStops,solve } from '../graphHelpers/ESRISolveModel';
+import { getStops,solve,arcgisServerUrl } from '../graphHelpers/ESRISolveModel';
 import * as Blossom from "../graphHelpers/blossom";
 import { findEularianTour, IEularianGraphEdge } from "../graphHelpers/EularianPath";
 import TextSymbol from '@arcgis/core/symbols/TextSymbol';
@@ -115,7 +115,7 @@ export class AppComponent implements OnInit, OnDestroy {
     });
 
     var streetsLayer = new FeatureLayer({
-        url:"http://192.168.8.9/arcgis/rest/services/Patrol/PatrolStreetsAndStops/MapServer/2"
+        url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/2"
     });
 
     this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer]);

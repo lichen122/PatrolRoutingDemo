@@ -6,12 +6,13 @@ import RouteParameters from "@arcgis/core/tasks/support/RouteParameters";
 import FeatureSet from "@arcgis/core/tasks/support/FeatureSet";
 import RouteTask from "@arcgis/core/tasks/RouteTask";
 
+export const arcgisServerUrl:string = "http://serviceplus01.transfinder.com/arcgis/rest/services/";
 export function getStops():Promise<any[]>{
     const midPointLayer= new FeatureLayer({
-        url:"http://192.168.8.9/arcgis/rest/services/Patrol/PatrolStreetsAndStops/MapServer/0"
+        url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/0"
     });
     const endPointLayer= new FeatureLayer({
-        url:"http://192.168.8.9/arcgis/rest/services/Patrol/PatrolStreetsAndStops/MapServer/1"
+        url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/1"
     });
     let stops:any[] = [];
     const query = new Query();
@@ -58,7 +59,7 @@ export function solve(startPoint:Point, allStops:any[]): Promise<any> {
       preserveFirstStop:true
   });
   const routeTask = new RouteTask({
-      url:"http://192.168.8.9/arcgis/rest/services/Patrol/PatrolLocalRoute/NAServer/Route"
+      url:arcgisServerUrl+"Patrol/PatrolLocalRoute/NAServer/Route"
   });
   return routeTask.solve(routeParams).then(function(results:any){
     return results.routeResults[0];
