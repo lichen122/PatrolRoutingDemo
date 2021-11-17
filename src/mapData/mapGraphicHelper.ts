@@ -6,7 +6,7 @@ import TileLayer from "@arcgis/core/layers/TileLayer";
 import Graphic from "@arcgis/core/Graphic";
 import Geometry from "@arcgis/core/geometry/Geometry";
 import Point from "@arcgis/core/geometry/Point";
-import CIMSymbol from '@arcgis/core/symbols/CIMSymbol';
+import PictureMarkerSymbol from '@arcgis/core/symbols/PictureMarkerSymbol';
 import Color from "@arcgis/core/Color";
 import SimpleMarkerSymbol from '@arcgis/core/symbols/SimpleMarkerSymbol';
 import TextSymbol from '@arcgis/core/symbols/TextSymbol';
@@ -58,20 +58,27 @@ function createVertexGraphics(v: UDGraphVertex, foreColor: Color, backColor: Col
 
 export function createPathAnimationPointGraphic(pt: Point, color: Color): Graphic {
 
-  const circleSymbol = {
-    type: "simple-marker",
-    color: color,
-    size: "15px",
-    outline: {
-      color: Color.fromHex("#000"),
-      width: 1
-    }
-  };
+  // const iconSymbol = {
+  //   type: "simple-marker",
+  //   color: color,
+  //   size: "15px",
+  //   outline: {
+  //     color: Color.fromHex("#000"),
+  //     width: 1
+  //   }
+  // };
+
+  let iconSymbol =  PictureMarkerSymbol.fromJSON({
+    type: "picture-marker",  // autocasts as new PictureMarkerSymbol()
+    url: "assets/imgs/web/police-car-256.png",
+    width: "32px",
+    height: "32px"
+  });
 
   const pointGraphic = new Graphic({
     attributes: { id: "currentLocation"},
     geometry: pt.clone(),
-    symbol: circleSymbol
+    symbol: iconSymbol
   });
 
   return pointGraphic;
