@@ -19,7 +19,7 @@ import { whenOnce, pausable } from "@arcgis/core/core/watchUtils";
 import Basemap from "@arcgis/core/Basemap";
 import BasemapGallery from "@arcgis/core/widgets/BasemapGallery";
 import BasemapGalleryItem from "@arcgis/core/widgets/BasemapGallery/support/BasemapGalleryItem";
-import { createPathAnimationPointGraphic, createPathAnimationTrailGraphic, drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices, animateTraverseByRoutePaths } from "../mapData/mapGraphicHelper";
+import { createVRPVehicleGraphic, createPathAnimationPointGraphic, createPathAnimationTrailGraphic, drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices, animateTraverseByRoutePaths } from "../mapData/mapGraphicHelper";
 import { UDGraph, findOptimumExpandingSubGraph } from 'src/graphHelpers/UDGraph';
 import { trySolveChinesePostmanProblem } from 'src/graphHelpers/ChinesePostman';
 import { arcgisServerUrl,getStops,solve,getCrossTimes,vrp } from '../graphHelpers/ESRISolveModel';
@@ -43,6 +43,9 @@ export class AppComponent implements OnInit, OnDestroy {
   public isInSolvingMode: boolean = false;
   public isSolvingInProgress: boolean = false;
   public isLoadingData: boolean = false;
+
+  public activeVrpVehicleBtnId: number = 0;
+
 
   expandingStartVertexId: number = 1;
 
@@ -82,12 +85,6 @@ export class AppComponent implements OnInit, OnDestroy {
     view.popup.collapseEnabled = false; // disable popup collapse
 
     // Add Layers into map
-    var solveAnimationLayer = new GraphicsLayer({
-      id: "solveAnimationLayer",
-      title: "solveAnimation",
-      visible: true,
-    });
-
     var pathSolveLayer = new GraphicsLayer({
       id: "pathSolveLayer",
       title: "PathSolve",
@@ -104,7 +101,19 @@ export class AppComponent implements OnInit, OnDestroy {
         url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/2"
     });
 
-    this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer, solveAnimationLayer]);
+    var solveAnimationLayer = new GraphicsLayer({
+      id: "solveAnimationLayer",
+      title: "solveAnimation",
+      visible: true,
+    });
+
+    var vrpAnimationLayer = new GraphicsLayer({
+      id: "vrpAnimationLayer",
+      title: "vrpAnimation",
+      visible: true,
+    });
+
+    this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer, solveAnimationLayer, vrpAnimationLayer]);
 
     // Bind map events
     view.on("click", self.onMapClick.bind(self));
@@ -177,6 +186,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (self.isInSolvingMode && !self.isSolvingInProgress) {
       self.SolveAndDraw(mPoint);
+    }
+
+    if (self.activeVrpVehicleBtnId >= 1 && self.activeVrpVehicleBtnId <=3) {
+      self.tryAddVRPVehicleOnMap(mPoint);
     }
   }
 
@@ -264,6 +277,75 @@ export class AppComponent implements OnInit, OnDestroy {
       preSolvingMode = self.isInSolvingMode;
 
     self.isInSolvingMode = !preSolvingMode;
+
+    const vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
+    self.activeVrpVehicleBtnId = 0;
+    vrpAnimationLayer.removeAll();
+  }
+
+  activateVRPVehicleClick(evt: any, vrpVehicleId: number): void {
+
+    if (typeof(vrpVehicleId) !== "number" || vrpVehicleId < 1 || vrpVehicleId > 3) {
+      return;
+    }
+
+    const self = this,
+      prevVrpVehicleId = self.activeVrpVehicleBtnId;
+
+    if (prevVrpVehicleId === vrpVehicleId) {
+      self.activeVrpVehicleBtnId = 0; // Deactivte current selected vrp button
+    } else {
+      self.activeVrpVehicleBtnId = vrpVehicleId;
+    }
+
+  }
+
+  tryAddVRPVehicleOnMap(pt: Point): void {
+    const self = this,
+      carId = self.activeVrpVehicleBtnId;
+
+    if ([1, 2, 3].indexOf(carId) < 0) {
+      return;
+    }
+
+    const vrpLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
+    if (vrpLayer) {
+      let carGraphic: Graphic = vrpLayer.graphics.find(g => g.attributes.vrpCarId === carId);
+      if (!carGraphic) {
+        carGraphic = createVRPVehicleGraphic(carId, pt);
+        vrpLayer.add(carGraphic);
+      } else {
+        carGraphic.geometry = pt.clone();
+      }
+    }
+
+  }
+
+  computeVRPRoute(evt: any): void {
+    const self = this,
+      solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer,
+      vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
+
+    self.isSolvingInProgress = false;
+    self.isInSolvingMode = false;
+    solveAnimationLayer.removeAll();
+
+    let carNum = 0;
+    const car1Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 1);
+    const car2Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 2);
+    const car3Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 3);
+
+    if (car1Graphic) carNum++;
+    if (car2Graphic) carNum++;
+    if (car3Graphic) carNum++;
+
+    if (carNum === 0) {
+      console.warn(`No Vrp Vehicle found!`);
+      return;
+    }
+
+    console.debug(`Gonna compute VRP Route for ${carNum} cars`);
+
   }
 
   drawSolvedStops(routeResult:any,stopsLayer:GraphicsLayer):void{

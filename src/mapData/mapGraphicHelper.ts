@@ -102,6 +102,23 @@ export function createPathAnimationTrailGraphic(startPt: Point, color: Color): G
   return polylineGraphic;
 }
 
+export function createVRPVehicleGraphic(carId: number, pt: Point): Graphic {
+  let iconSymbol =  PictureMarkerSymbol.fromJSON({
+    type: "picture-marker",  // autocasts as new PictureMarkerSymbol()
+    url: "assets/imgs/web/vrp-policecar-512.png",
+    width: "32px",
+    height: "32px"
+  });
+
+  const carGraphic = new Graphic({
+    attributes: { vrpCarId: carId},
+    geometry: pt.clone(),
+    symbol: iconSymbol
+  });
+
+  return carGraphic;
+}
+
 function createEdgeLineGraphic(v1: UDGraphVertex, v2: UDGraphVertex, e: IGraphEdge, color: Color): Graphic {
   const lineSymbol = new SimpleLineSymbol({
     color: color,

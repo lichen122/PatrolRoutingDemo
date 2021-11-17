@@ -26,6 +26,36 @@
   display: flex;
   background-color: #fff;
   opacity: 0.7;
+
+  .control-panel-btn {
+    margin: auto 2px;
+  }
+
+  .vrp-vehicles-toolbar {
+    display: flex;
+
+    .add-vrp-vehicle {
+      width: 25px;
+      height: 25px;
+      margin: 3px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-image: url(../assets/imgs/web/add-vehicle-dark-512.png);
+
+      cursor: pointer;
+
+      &.active {
+        background-color: #eee;
+        opacity: 0.9;
+        border-width: 3px;
+        border-color: #0000FF;
+        border-style: solid;
+      }
+    }
+  }
+
+
+
 }
 
 #loadingMaskWrapper {
