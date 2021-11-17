@@ -32,14 +32,16 @@ import { staticRouteResult } from 'src/mapData/staticEsriRouteResult';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
+  styleUrls: ['./app.component.scss'],
 })
 export class AppComponent implements OnInit, OnDestroy {
   public _map: ArcGISMap | undefined;
   public _view: MapView | undefined;
   public _cppGraph: UDGraph | undefined;
   public _allStops: any[] = [];
-  public _lastRouteSolveResult: any = null;
+  public isInSolvingMode: boolean = false;
+  public isSolvingInProgress: boolean = false;
+  public isLoadingData: boolean = false;
 
   expandingStartVertexId: number = 1;
 
@@ -184,14 +186,19 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   onMapClick(evt: any): void {
+
     const self = this,
       mPoint = evt.mapPoint,
       sPoint = evt.screenPoint;
+
     console.log(`Clicked MapPoint: {longitude: ${mPoint.longitude}, latitude: ${mPoint.latitude}}, ScreenPoint: (x: ${sPoint.x}, y: ${sPoint.y})`);
-    self.SolveAndDraw(mPoint);
+
+    if (self.isInSolvingMode && !self.isSolvingInProgress) {
+      self.SolveAndDraw(mPoint);
+    }
   }
 
-  SolveAndDraw(mPoint:Point):void{
+  SolveAndDraw(mPoint:Point): Promise<any> {
     const self = this;
     const pathLayer = self._map?.layers.find(l=> l.id === "pathSolveLayer") as GraphicsLayer;
     const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
@@ -208,10 +215,12 @@ export class AppComponent implements OnInit, OnDestroy {
         }
     }
 
-    solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
+    let solvedResult: any = null;
+    self.isLoadingData = true;
+    self.isSolvingInProgress = true;
+    return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
         if(routeResult){
-            self._lastRouteSolveResult = routeResult;
-
+          solvedResult = routeResult;
             if(routeResult.route&&routeResult.route.geometry){
                 pathLayer.add(new Graphic({geometry:routeResult.route.geometry}));
             }
@@ -244,17 +253,26 @@ export class AppComponent implements OnInit, OnDestroy {
                 }
             }
         }
+    }).then(() => {
+      return self.delay(2000);
+    }).then(() => {
+      self.isLoadingData = false;
+      if (solvedResult) {
+        return self.animateSolveRouteResult(solvedResult);
+      }
+
+      return null;
+    }).finally(() => {
+      self.isSolvingInProgress = false;
     });
   }
 
-  animateSolveRouteResult(evt: any): void {
+  animateSolveRouteResult(routeResult: any): Promise<any> {
     console.debug(`animateSolveRouteResult now...`);
     const self = this;
-
     const layer = self._map?.layers.find(l => l.id ==="pathAnimationLayer") as GraphicsLayer;
 
-    if (layer) {
-      const routeResult = self._lastRouteSolveResult;
+    if (routeResult && layer) {
       const pathsGeometry = routeResult.route.geometry;
       const firstLocation = pathsGeometry.paths[0][0];
       const firstPoint = new Point({
@@ -266,11 +284,10 @@ export class AppComponent implements OnInit, OnDestroy {
       const trailGraphic = createPathAnimationTrailGraphic(firstPoint, Color.fromHex("#888800"));
       layer.addMany([pointGraphic, trailGraphic]);
 
-      setTimeout(() => {
-        console.debug("start animation route paths");
-        animateTraverseByRoutePaths(pointGraphic, trailGraphic, pathsGeometry);
-      }, 1000);
+      return animateTraverseByRoutePaths(pointGraphic, trailGraphic, pathsGeometry);
     }
+
+    return Promise.resolve(null);
   }
 
   runTest(evt: any): void {
@@ -280,4 +297,19 @@ export class AppComponent implements OnInit, OnDestroy {
 
   }
 
+  solveRouteClick(evt: any): void {
+    const self = this,
+      preSolvingMode = self.isInSolvingMode;
+
+    self.isInSolvingMode = !preSolvingMode;
+  }
+
+  delay(millionSeconds: number): Promise<any> {
+    millionSeconds = Math.max(0, millionSeconds);
+    return new Promise(res => {
+      setTimeout(() => {
+        res(null);
+      }, millionSeconds);
+    });
+  }
 }

@@ -1,14 +1,21 @@
 <!-- Map Div -->
-<div #mapViewNode></div>
+<div id="mapViewNode" #mapViewNode [class.inSolvingMode]="isInSolvingMode"></div>
 <div id="controlPanel" #controlPanelNode >
   <ul>
     <li>
       <h2>Esri Solve Test</h2>
-      <Button (click)="animateSolveRouteResult($event)">Solve Route</Button>
+      <Button (click)="solveRouteClick($event)" [disabled]="isSolvingInProgress" >{{isInSolvingMode ? "Stop Solving" : "Start Solving"}}</Button>
       <button (click)="runTest($event)">Test</button>
     </li>
     <li>
       <h2>...</h2>
     </li>
   </ul>
+</div>
+<div id="loadingMaskWrapper"   [class.isHidden]="!isLoadingData" >
+  <div class="loading-mask-back">
+    <div class="loading-mask-content">
+      <h1>Loading ... </h1>>
+    </div>
+  </div>
 </div>
