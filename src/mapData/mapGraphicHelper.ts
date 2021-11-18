@@ -111,7 +111,7 @@ export function createVRPVehicleGraphics(carId: number, pt: Point): Graphic[] {
   });
 
   const carGraphic = new Graphic({
-    attributes: { vrpCarId: carId },
+    attributes: { vrpCarId: carId, isHeadNode: true },
     geometry: pt.clone(),
     symbol: iconSymbol
   });
@@ -130,7 +130,7 @@ export function createVRPVehicleGraphics(carId: number, pt: Point): Graphic[] {
   };
 
   const textGraphic = new Graphic({
-    attributes: { vrpCarId: carId },
+    attributes: { vrpCarId: carId, isHeadNode: true },
     geometry: pt.clone(),
     symbol: textSymbol
   });

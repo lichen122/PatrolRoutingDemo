@@ -343,21 +343,30 @@ export class AppComponent implements OnInit, OnDestroy {
   computeVRPRoute(evt: any): void {
     const self = this,
       solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer,
-      vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
+      vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
+      stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
     solveAnimationLayer.removeAll();
 
-    let carNum = 0;
-    const car1Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 1);
-    const car2Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 2);
-    const car3Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 3);
+	  self.activeVrpVehicleBtnId = 0; // Deselect VRP Vehicle Button
+    const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHead === true);
+    if (vrpPathAnimationGraphics.length > 0) {
+      vrpAnimationLayer.graphics.removeMany(vrpPathAnimationGraphics);
+    }
+    stopsLayer.graphics.removeAll();
 
-    let carGraphics:any[] = [];
-    if (car1Graphic) {carGraphics.push(car1Graphic);carNum++;}
-    if (car2Graphic) {carGraphics.push(car2Graphic);carNum++;}
-    if (car3Graphic) {carGraphics.push(car3Graphic);carNum++;}
+
+    let carNum = 0;
+    const car1Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 1).toArray();
+    const car2Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 2).toArray();
+    const car3Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 3).toArray();
+
+    let carGraphicsList: Array<Graphic[]> = [];
+    if (car1Graphics.length > 0) { carGraphicsList.push(car1Graphics); carNum++;}
+    if (car2Graphics.length > 0) { carGraphicsList.push(car2Graphics); carNum++;}
+    if (car3Graphics.length > 0) { carGraphicsList.push(car3Graphics); carNum++;}
 
     if (carNum === 0) {
       console.warn(`No Vrp Vehicle found!`);
@@ -369,7 +378,9 @@ export class AppComponent implements OnInit, OnDestroy {
     self.isLoadingData = true;
     self.isSolvingInProgress = true;
     console.debug(`Gonna compute VRP Route for ${carNum} cars`);
-    vrp(carGraphics,self._allStops).then(function(result){
+
+    const carPosGraphics = carGraphicsList.map(cgl => cgl[0]);
+    vrp(carPosGraphics,self._allStops).then(function(result){
         vrpResult = result;
         self.drawVrpStops(vrpResult.stops, carColors, vrpResult.routes);
     }).then(() => {
@@ -377,7 +388,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }).then(() => {
       self.isLoadingData = false;
       if (vrpResult && vrpResult.routes) {
-        return self.animateVRPRouteResult(vrpResult.routes, carColors, carGraphics, vrpAnimationLayer);
+        return self.animateVRPRouteResult(vrpResult.routes, carColors, carGraphicsList, vrpAnimationLayer);
       }
       return null;
     }).finally(() => {
@@ -474,7 +485,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  animateVRPRouteResult(routes: any[], carColors: any[], carGraphics:any[], vrpAnimationLayer: GraphicsLayer): Promise<any> {
+  animateVRPRouteResult(routes: any[], carColors: any[], carGraphicsList: Array<Graphic[]>, vrpAnimationLayer: GraphicsLayer): Promise<any> {
     const self = this;
     let promises = [];
     for (let index = 0; index < routes.length; index++) {
@@ -483,10 +494,10 @@ export class AppComponent implements OnInit, OnDestroy {
             y:routes[index].geometry.paths[0][0][1],
             spatialReference:routes[index].geometry.spatialReference
         })
-        let pointGraphic = createPathAnimationPointGraphic(firstPoint, carColors[index]);
+        // let pointGraphic = createPathAnimationPointGraphic(firstPoint, carColors[index]);
         let trailGraphic = createPathAnimationTrailGraphic(firstPoint, carColors[index]);
-        vrpAnimationLayer.addMany([pointGraphic, trailGraphic]);
-        promises.push(animateTraverseByRoutePaths([pointGraphic,carGraphics[index]],trailGraphic, routes[index].geometry));
+        vrpAnimationLayer.addMany([trailGraphic]);
+        promises.push(animateTraverseByRoutePaths(carGraphicsList[index],trailGraphic, routes[index].geometry));
     }
     return Promise.all(promises).then(function(){
         return;
