@@ -6,6 +6,8 @@ import RouteParameters from "@arcgis/core/tasks/support/RouteParameters";
 import FeatureSet from "@arcgis/core/tasks/support/FeatureSet";
 import RouteTask from "@arcgis/core/tasks/RouteTask";
 import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
+import Geoprocessor from "@arcgis/core/tasks/Geoprocessor";
+import Graphic from "@arcgis/core/Graphic";
 
 export const arcgisServerUrl:string = "http://serviceplus01.transfinder.com/arcgis/rest/services/";
 
@@ -83,3 +85,90 @@ export function getCrossTimes(stop:any, pathGeometry:Polyline):number{
     let crossTimes = intersection?intersection.paths.length:1;
     return crossTimes;
 }
+
+export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
+    if (!startPoints || startPoints.length==0) {
+        throw Error("Please provide a starting point to vrp!");
+    }
+    let processor = new Geoprocessor({
+        url:"http://192.168.8.90/arcgis/rest/services/"+"acs8_Master/acs8NetworkGPService/GPServer/Solve%20Vehicle%20Routing%20Problem"
+    });
+    let orders = new FeatureSet(),
+        depots = new FeatureSet(),
+        routes = new FeatureSet();
+
+    //add vehicle starting locations as depots
+    //add routes(place holder for result patrol routes)
+    for (let index = 0; index < startPoints.length; index++) {
+        depots.features.push(new Graphic({
+            geometry:startPoints[index],
+            attributes:{
+                Name: "startPoint_"+index,
+                CurbApproach:0//Either side
+            }
+        }));
+        routes.features.push(new Graphic({
+            geometry:new Polyline({
+                spatialReference:startPoints[index].spatialReference,
+                paths:[]
+            }),
+            attributes:{
+                Name:index,
+                StartDepotName:"startPoint_"+index,
+                MaxOrderCount:1000
+            }
+        }))
+    }
+
+    //add street midpoint and endpoints as orders
+    for (let index = 0; index < allStops.length; index++) {
+        orders.features.push(new Graphic({
+            geometry:allStops[index].geometry,
+            attributes:{
+                Name:"order_"+index,
+                CurbApproach:3,//no-uturn,
+                AssignmentRule:3,//override
+            }
+        }));
+    }
+
+    let params = {
+        "orders":orders,
+        "depots":depots,
+        "routes":routes,
+        "spatially_cluster_routes":true,
+        "time_attributes":"Time",
+        "f": "pjson",
+        "default_date": 1355212800000,
+    }
+
+    return processor.submitJob(params).then(jobInfo=>{
+        let jobid = jobInfo.jobId;
+        return processor.waitForJobCompletion(jobid, {}).then(res=>{
+            return gpJobComplete(res);
+        })
+    });
+
+    function gpJobComplete(gpResponse:any):Promise<any>{
+    if (gpResponse.jobStatus.indexOf("failed") >= 0)
+    {
+        return Promise.resolve(false);
+    }
+    let jobId = gpResponse.jobId;
+    let resultNames = ["solve_succeeded","out_routes"];
+
+    let promises:any[] = [];
+    resultNames.forEach(resultName=>{
+        promises.push(processor.getResultData(jobId,resultName));
+    });
+
+    return Promise.all(promises).then(results=>{
+        if(results[0].value){
+            return Promise.resolve(results[1].value.features.map(function(f:any){return f.geometry}));
+        }else{
+            throw Error("VRP failed!");
+        }
+    })
+}
+}
+
