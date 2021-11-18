@@ -86,7 +86,7 @@ export function getCrossTimes(stop:any, pathGeometry:Polyline):number{
     return crossTimes;
 }
 
-export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
+export function vrp(startPoints:any[], allStops:any[]):Promise<any>{
     if (!startPoints || startPoints.length==0) {
         throw Error("Please provide a starting point to vrp!");
     }
@@ -101,7 +101,7 @@ export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
     //add routes(place holder for result patrol routes)
     for (let index = 0; index < startPoints.length; index++) {
         depots.features.push(new Graphic({
-            geometry:startPoints[index],
+            geometry:startPoints[index].geometry,
             attributes:{
                 Name: "startPoint_"+index,
                 CurbApproach:0//Either side
@@ -109,7 +109,7 @@ export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
         }));
         routes.features.push(new Graphic({
             geometry:new Polyline({
-                spatialReference:startPoints[index].spatialReference,
+                spatialReference:startPoints[index].geometry.spatialReference,
                 paths:[]
             }),
             attributes:{
@@ -125,7 +125,7 @@ export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
         orders.features.push(new Graphic({
             geometry:allStops[index].geometry,
             attributes:{
-                Name:"order_"+index,
+                Name:allStops[index].attributes.Name,
                 CurbApproach:3,//no-uturn,
                 AssignmentRule:3,//override
             }
@@ -150,25 +150,47 @@ export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
     });
 
     function gpJobComplete(gpResponse:any):Promise<any>{
-    if (gpResponse.jobStatus.indexOf("failed") >= 0)
-    {
-        return Promise.resolve(false);
-    }
-    let jobId = gpResponse.jobId;
-    let resultNames = ["solve_succeeded","out_routes"];
-
-    let promises:any[] = [];
-    resultNames.forEach(resultName=>{
-        promises.push(processor.getResultData(jobId,resultName));
-    });
-
-    return Promise.all(promises).then(results=>{
-        if(results[0].value){
-            return Promise.resolve(results[1].value.features.map(function(f:any){return f.geometry}));
-        }else{
-            throw Error("VRP failed!");
+        if (gpResponse.jobStatus.indexOf("failed") >= 0)
+        {
+            return Promise.resolve(false);
         }
-    })
+        let jobId = gpResponse.jobId;
+        let resultNames = ["solve_succeeded","out_routes","out_stops"];
+
+        let promises:any[] = [];
+        resultNames.forEach(resultName=>{
+            promises.push(processor.getResultData(jobId,resultName));
+        });
+
+        return Promise.all(promises).then(results=>{
+            if(results[0].value){
+                let outRoutes = results[1].value.features;
+                outRoutes.forEach((route:any) => {
+                    let paths = [...new Set([].concat(...route.geometry.paths))]
+                    let mergedPathGeometry = new Polyline({
+                        spatialReference:route.geometry.spatialReference,
+                        paths:paths,
+                    });
+                    route.geometry = mergedPathGeometry;
+                });
+                let outStops = results[2].value.features;
+                outStops.forEach((os: any) => {
+                    let inputOrder = orders.features.find(is=>is.attributes.Name == os.attributes.Name);
+                    if(inputOrder){
+                        os.geometry = inputOrder.geometry
+                    }
+                });
+                let vrpResult = {
+                    stops:outStops,
+                    routes:outRoutes,
+                }
+                return Promise.resolve(vrpResult);
+            }else{
+                throw Error("VRP failed!");
+            }
+        })
+    }
 }
-}
+
+
 

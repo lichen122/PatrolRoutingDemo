@@ -237,11 +237,7 @@ export class AppComponent implements OnInit, OnDestroy {
     self.isLoadingData = true;
     self.isSolvingInProgress = true;
 
-    // return vrp([mPoint],self._allStops).then(function(vrpResult){
-    //     console.log(vrpResult)
-    // });
-
-    return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
+       return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
         if(routeResult){
           solvedResult = routeResult;
             if(routeResult.route&&routeResult.route.geometry){
@@ -358,18 +354,35 @@ export class AppComponent implements OnInit, OnDestroy {
     const car2Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 2);
     const car3Graphic = vrpAnimationLayer.graphics.find(g => g.attributes.vrpCarId === 3);
 
-    if (car1Graphic) carNum++;
-    if (car2Graphic) carNum++;
-    if (car3Graphic) carNum++;
+    let carGraphics:any[] = [];
+    if (car1Graphic) {carGraphics.push(car1Graphic);carNum++;}
+    if (car2Graphic) {carGraphics.push(car2Graphic);carNum++;}
+    if (car3Graphic) {carGraphics.push(car3Graphic);carNum++;}
 
     if (carNum === 0) {
       console.warn(`No Vrp Vehicle found!`);
       return;
     }
 
+    let vrpResult:any = null;
+    let carColors = self.getColors(carNum);
+    self.isLoadingData = true;
+    self.isSolvingInProgress = true;
     console.debug(`Gonna compute VRP Route for ${carNum} cars`);
-
-
+    vrp(carGraphics,self._allStops).then(function(result){
+        vrpResult = result;
+        self.drawVrpStops(vrpResult.stops, carColors, vrpResult.routes);
+    }).then(() => {
+      return self.delay(2000);
+    }).then(() => {
+      self.isLoadingData = false;
+      if (vrpResult && vrpResult.routes) {
+        return self.animateVRPRouteResult(vrpResult.routes, carColors, carGraphics, vrpAnimationLayer);
+      }
+      return null;
+    }).finally(() => {
+      self.isSolvingInProgress = false;
+    });
   }
 
   drawSolvedStops(routeResult:any,stopsLayer:GraphicsLayer):void{
@@ -414,6 +427,84 @@ export class AppComponent implements OnInit, OnDestroy {
             }
         }
     }
+  }
+
+  drawVrpStops(stops:any[], colors:string[], routes:any[]):void{
+    const self = this;
+    const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
+    for (let index = 0; index < stops.length; index++) {
+        let stop = stops[index];
+        let stopGraphic = new Graphic({
+                geometry:stop.geometry,
+                symbol:new SimpleMarkerSymbol({
+                    style: "circle",
+                    color: colors[stop.attributes.RouteName],
+                    size:  16,
+                    outline: {
+                        type: "simple-line",
+                        style: "solid",
+                        color: "black",
+                        width: 2
+                    }
+                })
+        });
+        stopsLayer.graphics.add(stopGraphic);
+        let stopLabelGraphic = new Graphic({
+                symbol:new TextSymbol({
+                    text:stop.attributes.Sequence,
+                    color:"white",
+                }),
+                geometry:stop.geometry
+        });
+        stopsLayer.graphics.add(stopLabelGraphic);
+
+        if(stop.attributes.Sequence!=1 && stop.attributes.Name.indexOf("mid_")>=0){
+            let routeGeometry = routes[stop.attributes.RouteName].geometry;
+            let crossTimesGraphic = new Graphic({
+                symbol:new TextSymbol({
+                    text:getCrossTimes(stop, routeGeometry).toString(),
+                    color:"black",
+                    xoffset: 15,
+                    yoffset: 15,
+                }),
+                geometry:stop.geometry
+            });
+            stopsLayer.graphics.add(crossTimesGraphic);
+        }
+    }
+  }
+
+  animateVRPRouteResult(routes: any[], carColors: any[], carGraphics:any[], vrpAnimationLayer: GraphicsLayer): Promise<any> {
+    const self = this;
+    let promises = [];
+    for (let index = 0; index < routes.length; index++) {
+        let firstPoint = new Point({
+            x:routes[index].geometry.paths[0][0][0],
+            y:routes[index].geometry.paths[0][0][1],
+            spatialReference:routes[index].geometry.spatialReference
+        })
+        let pointGraphic = createPathAnimationPointGraphic(firstPoint, carColors[index]);
+        let trailGraphic = createPathAnimationTrailGraphic(firstPoint, carColors[index]);
+        vrpAnimationLayer.addMany([pointGraphic, trailGraphic]);
+        promises.push(animateTraverseByRoutePaths([pointGraphic,carGraphics[index]],trailGraphic, routes[index].geometry));
+    }
+    return Promise.all(promises).then(function(){
+        return;
+    });
+  }
+
+  getColors(num:number):string[]{
+    let colors = ["red","blue","green"];
+    // for (let index = 0; index < num; index++) {
+    //     var letters = "12345678".split("");
+    //     var color = "#";
+    //     for (var i = 0; i < 6; i++)
+    //     {
+    //         color += letters[Math.round(Math.random() * 7)];
+    //     }
+    //     colors.push(color);
+    // }
+    return colors;
   }
 
   delay(millionSeconds: number): Promise<any> {
