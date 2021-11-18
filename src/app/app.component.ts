@@ -12,6 +12,7 @@ import MapView from "@arcgis/core/views/MapView";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import TileLayer from "@arcgis/core/layers/TileLayer";
+import Query from "@arcgis/core/tasks/support/Query";
 import Graphic from "@arcgis/core/Graphic";
 import Color from "@arcgis/core/Color";
 import Point from "@arcgis/core/geometry/Point";
@@ -99,6 +100,7 @@ export class AppComponent implements OnInit, OnDestroy {
     });
 
     var streetsLayer = new FeatureLayer({
+        id: "streetsLayer",
         url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/2"
     });
 
@@ -185,13 +187,26 @@ export class AppComponent implements OnInit, OnDestroy {
 
     console.log(`Clicked MapPoint: {longitude: ${mPoint.longitude}, latitude: ${mPoint.latitude}}, ScreenPoint: (x: ${sPoint.x}, y: ${sPoint.y})`);
 
-    if (self.isInSolvingMode && !self.isSolvingInProgress) {
-      self.SolveAndDraw(mPoint);
-    }
+    self._view?.hitTest(sPoint).then(resp => {
+      if (resp.results.length > 0) {
+        const hitGraphicsInStreetsLayer = resp.results.filter(r => {
+          return r.graphic.layer.id === "streetsLayer";
+        });
 
-    if (self.activeVrpVehicleBtnId >= 1 && self.activeVrpVehicleBtnId <=3) {
-      self.tryAddVRPVehicleOnMap(mPoint);
-    }
+        if (hitGraphicsInStreetsLayer[0] && hitGraphicsInStreetsLayer[0].graphic) {
+          if (self.isInSolvingMode && !self.isSolvingInProgress) {
+            self.SolveAndDraw(mPoint);
+          }
+
+          if (self.activeVrpVehicleBtnId >= 1 && self.activeVrpVehicleBtnId <=3) {
+            self.tryAddVRPVehicleOnMap(mPoint);
+          }
+        }
+      }
+    });
+
+
+
   }
 
   SolveAndDraw(mPoint:Point): Promise<any> {
@@ -221,11 +236,11 @@ export class AppComponent implements OnInit, OnDestroy {
     let solvedResult: any = null;
     self.isLoadingData = true;
     self.isSolvingInProgress = true;
-    
+
     // return vrp([mPoint],self._allStops).then(function(vrpResult){
     //     console.log(vrpResult)
     // });
-    
+
     return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
         if(routeResult){
           solvedResult = routeResult;
@@ -263,7 +278,16 @@ export class AppComponent implements OnInit, OnDestroy {
     const self = this;
     console.debug(`runTest now...`);
 
+    const query = new Query({
+      outFields: ["*"],
+      where: "1=1",
+      returnGeometry: true,
+    });
 
+    const fLayer = self._map?.layers.getItemAt(0) as FeatureLayer;
+    fLayer.queryFeatures(query).then( qr => {
+      console.log(qr);
+    });
   }
 
   solveRouteClick(evt: any): void {
