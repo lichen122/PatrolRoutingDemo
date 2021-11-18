@@ -79,10 +79,13 @@ export function solve(startPoint:Point, allStops:any[]): Promise<any> {
   });
 }
 
-export function getCrossTimes(stop:any, pathGeometry:Polyline):number{
-    let buffer = geometryEngine.buffer(stop.geometry,0.2,"meters");
-    let intersection = geometryEngine.intersect(buffer, pathGeometry) as Polyline; 
-    let crossTimes = intersection?intersection.paths.length:1;
+export function getCrossTimes(stop:any, pathGeometries:Polyline[]):number{
+    let crossTimes = 0;
+    pathGeometries.forEach(path=>{
+        let buffer = geometryEngine.buffer(stop.geometry,0.2,"meters");
+        let intersection = geometryEngine.intersect(buffer, path) as Polyline; 
+        crossTimes += intersection?intersection.paths.length:0;
+    });
     return crossTimes;
 }
 

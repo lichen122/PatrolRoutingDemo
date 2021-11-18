@@ -436,7 +436,7 @@ export class AppComponent implements OnInit, OnDestroy {
             if(index!=0 && stop.attributes.Name.indexOf("mid_")>=0){
                 let crossTimesGraphic = new Graphic({
                     symbol:new TextSymbol({
-                        text:getCrossTimes(stop, routeResult.route.geometry).toString(),
+                        text:getCrossTimes(stop, [routeResult.route.geometry]).toString(),
                         color:"black",
                         xoffset: 15,
                         yoffset: 15,
@@ -472,10 +472,9 @@ export class AppComponent implements OnInit, OnDestroy {
         stopsLayer.graphics.add(stopLabelGraphic);
 
         if(stop.attributes.Sequence!=1 && stop.attributes.Name.indexOf("mid_")>=0){
-            let routeGeometry = routes[stop.attributes.RouteName].geometry;
             let crossTimesGraphic = new Graphic({
                 symbol:new TextSymbol({
-                    text:getCrossTimes(stop, routeGeometry).toString(),
+                    text:getCrossTimes(stop, routes.map(r=>r.geometry)).toString(),
                     color:"black",
                     xoffset: 15,
                     yoffset: 15,
