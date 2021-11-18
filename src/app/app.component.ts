@@ -116,7 +116,7 @@ export class AppComponent implements OnInit, OnDestroy {
       visible: true,
     });
 
-    this._map?.layers.addMany([streetsLayer,pathSolveLayer,stopsSolveLayer, solveAnimationLayer, vrpAnimationLayer]);
+    this._map?.layers.addMany([streetsLayer,solveAnimationLayer, vrpAnimationLayer, pathSolveLayer,stopsSolveLayer]);
 
     // Bind map events
     view.on("click", self.onMapClick.bind(self));
@@ -404,7 +404,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 geometry:stop.geometry,
                 symbol:new SimpleMarkerSymbol({
                     style: "circle",
-                    color: "blue",
+                    color: "#888800",
                     size:  16,
                     outline: {
                         type: "simple-line",
@@ -443,30 +443,23 @@ export class AppComponent implements OnInit, OnDestroy {
   drawVrpStops(stops:any[], colors:string[], routes:any[]):void{
     const self = this;
     const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
+    //add first stop
+    for (let index = 0; index < routes.length; index++) {
+        let firstPoint = new Point({
+            x:routes[index].geometry.paths[0][0][0],
+            y:routes[index].geometry.paths[0][0][1],
+            spatialReference:routes[index].geometry.spatialReference
+        });
+        stopsLayer.graphics.add(self.createStopGraphic(firstPoint, colors[routes[index].attributes.Name]));
+        stopsLayer.graphics.add(self.createStopLabelGraphic(firstPoint, 1));
+    }
+
+    //add other stops
     for (let index = 0; index < stops.length; index++) {
         let stop = stops[index];
-        let stopGraphic = new Graphic({
-                geometry:stop.geometry,
-                symbol:new SimpleMarkerSymbol({
-                    style: "circle",
-                    color: colors[stop.attributes.RouteName],
-                    size:  16,
-                    outline: {
-                        type: "simple-line",
-                        style: "solid",
-                        color: "black",
-                        width: 2
-                    }
-                })
-        });
+        let stopGraphic = self.createStopGraphic(stop.geometry, colors[stop.attributes.RouteName]);
         stopsLayer.graphics.add(stopGraphic);
-        let stopLabelGraphic = new Graphic({
-                symbol:new TextSymbol({
-                    text:stop.attributes.Sequence,
-                    color:"white",
-                }),
-                geometry:stop.geometry
-        });
+        let stopLabelGraphic = self.createStopLabelGraphic(stop.geometry, stop.attributes.Sequence);
         stopsLayer.graphics.add(stopLabelGraphic);
 
         if(stop.attributes.Sequence!=1 && stop.attributes.Name.indexOf("mid_")>=0){
@@ -525,5 +518,32 @@ export class AppComponent implements OnInit, OnDestroy {
         res(null);
       }, millionSeconds);
     });
+  }
+
+  createStopGraphic(stopGeometry:Point, color:string):Graphic{
+      return new Graphic({
+                geometry: stopGeometry,
+                symbol:new SimpleMarkerSymbol({
+                    style: "circle",
+                    color: color,
+                    size:  16,
+                    outline: {
+                        type: "simple-line",
+                        style: "solid",
+                        color: "black",
+                        width: 2
+                    }
+                })
+        });
+  }
+
+  createStopLabelGraphic(stopGeometry:Point, sequence:number):Graphic{
+    return new Graphic({
+                symbol:new TextSymbol({
+                    text:sequence.toString(),
+                    color:"white",
+                }),
+                geometry:stopGeometry
+        });
   }
 }
