@@ -219,6 +219,11 @@ export class AppComponent implements OnInit, OnDestroy {
     let solvedResult: any = null;
     self.isLoadingData = true;
     self.isSolvingInProgress = true;
+    
+    // return vrp([mPoint],self._allStops).then(function(vrpResult){
+    //     console.log(vrpResult)
+    // });
+    
     return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
         if(routeResult){
           solvedResult = routeResult;

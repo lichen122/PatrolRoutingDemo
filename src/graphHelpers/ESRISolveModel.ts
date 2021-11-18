@@ -9,7 +9,7 @@ import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 import Geoprocessor from "@arcgis/core/tasks/Geoprocessor";
 import Graphic from "@arcgis/core/Graphic";
 
-export const arcgisServerUrl:string = "http://serviceplus01.transfinder.com/arcgis/rest/services/";
+export const arcgisServerUrl:string = "http://192.168.8.9/arcgis/rest/services/";
 
 export function getStops():Promise<any[]>{
     const midPointLayer= new FeatureLayer({
@@ -91,7 +91,7 @@ export function vrp(startPoints:Point[], allStops:any[]):Promise<any>{
         throw Error("Please provide a starting point to vrp!");
     }
     let processor = new Geoprocessor({
-        url:"http://192.168.8.90/arcgis/rest/services/"+"acs8_Master/acs8NetworkGPService/GPServer/Solve%20Vehicle%20Routing%20Problem"
+        url:arcgisServerUrl+"Patrol/SolveVehicleRoutingProblem/GPServer/Solve%20Vehicle%20Routing%20Problem"
     });
     let orders = new FeatureSet(),
         depots = new FeatureSet(),
