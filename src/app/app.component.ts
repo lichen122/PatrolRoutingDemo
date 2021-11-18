@@ -19,7 +19,7 @@ import { whenOnce, pausable } from "@arcgis/core/core/watchUtils";
 import Basemap from "@arcgis/core/Basemap";
 import BasemapGallery from "@arcgis/core/widgets/BasemapGallery";
 import BasemapGalleryItem from "@arcgis/core/widgets/BasemapGallery/support/BasemapGalleryItem";
-import { createVRPVehicleGraphic, createPathAnimationPointGraphic, createPathAnimationTrailGraphic, drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices, animateTraverseByRoutePaths } from "../mapData/mapGraphicHelper";
+import { createVRPVehicleGraphics, createPathAnimationPointGraphic, createPathAnimationTrailGraphic, drawSimpleCPPGraph, highLightUDGraph, animateTraverseByPathVertices, animateTraverseByRoutePaths } from "../mapData/mapGraphicHelper";
 import { UDGraph, findOptimumExpandingSubGraph } from 'src/graphHelpers/UDGraph';
 import { trySolveChinesePostmanProblem } from 'src/graphHelpers/ChinesePostman';
 import { arcgisServerUrl,getStops,solve,getCrossTimes,vrp } from '../graphHelpers/ESRISolveModel';
@@ -237,7 +237,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }).then(() => {
       self.isLoadingData = false;
       if (solvedResult) {
-        return self.animateSolveRouteResult(solvedResult, solveAnimationLayer, pointGraphic, trailGraphic);
+        return self.animateSolveRouteResult(solvedResult, solveAnimationLayer, [pointGraphic], trailGraphic);
       }
 
       return null;
@@ -246,20 +246,13 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  animateSolveRouteResult(routeResult: any, layer: GraphicsLayer, pointGraphic: Graphic, trailGraphic: Graphic): Promise<any> {
-    console.debug(`animateSolveRouteResult now...`);
+  animateSolveRouteResult(routeResult: any, layer: GraphicsLayer, pointGraphics: Graphic[], trailGraphic: Graphic): Promise<any> {
     const self = this;
 
     if (routeResult && layer) {
       const pathsGeometry = routeResult.route.geometry;
-      const firstLocation = pathsGeometry.paths[0][0];
-      // const firstPoint = new Point({
-      //   x : firstLocation[0],
-      //   y : firstLocation[1],
-      //   spatialReference : pathsGeometry.spatialReference
-      // });
 
-      return animateTraverseByRoutePaths(pointGraphic, trailGraphic, pathsGeometry);
+      return animateTraverseByRoutePaths(pointGraphics, trailGraphic, pathsGeometry);
     }
 
     return Promise.resolve(null);
@@ -290,14 +283,17 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     const self = this,
-      prevVrpVehicleId = self.activeVrpVehicleBtnId;
+      prevVrpVehicleId = self.activeVrpVehicleBtnId,
+      solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer;
+      self.isSolvingInProgress = false;
+      self.isInSolvingMode = false;
+      solveAnimationLayer.removeAll();
 
     if (prevVrpVehicleId === vrpVehicleId) {
       self.activeVrpVehicleBtnId = 0; // Deactivte current selected vrp button
     } else {
       self.activeVrpVehicleBtnId = vrpVehicleId;
     }
-
   }
 
   tryAddVRPVehicleOnMap(pt: Point): void {
@@ -310,12 +306,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const vrpLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
     if (vrpLayer) {
-      let carGraphic: Graphic = vrpLayer.graphics.find(g => g.attributes.vrpCarId === carId);
-      if (!carGraphic) {
-        carGraphic = createVRPVehicleGraphic(carId, pt);
-        vrpLayer.add(carGraphic);
+      let carGraphics: Graphic[] = vrpLayer.graphics.filter(g => g.attributes.vrpCarId === carId).toArray();
+      if (!carGraphics || carGraphics.length === 0) {
+        carGraphics = createVRPVehicleGraphics(carId, pt);
+        vrpLayer.graphics.addMany(carGraphics);
       } else {
-        carGraphic.geometry = pt.clone();
+        carGraphics.forEach(cg => {
+          cg.set("geometry", pt.clone());
+        })
       }
     }
 

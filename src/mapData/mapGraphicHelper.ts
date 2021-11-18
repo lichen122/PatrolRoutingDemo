@@ -102,7 +102,7 @@ export function createPathAnimationTrailGraphic(startPt: Point, color: Color): G
   return polylineGraphic;
 }
 
-export function createVRPVehicleGraphic(carId: number, pt: Point): Graphic {
+export function createVRPVehicleGraphics(carId: number, pt: Point): Graphic[] {
   let iconSymbol =  PictureMarkerSymbol.fromJSON({
     type: "picture-marker",  // autocasts as new PictureMarkerSymbol()
     url: "assets/imgs/web/vrp-policecar-512.png",
@@ -111,12 +111,31 @@ export function createVRPVehicleGraphic(carId: number, pt: Point): Graphic {
   });
 
   const carGraphic = new Graphic({
-    attributes: { vrpCarId: carId},
+    attributes: { vrpCarId: carId },
     geometry: pt.clone(),
     symbol: iconSymbol
   });
 
-  return carGraphic;
+  const textSymbol = {
+    type: "text",  // autocasts as new TextSymbol()
+    color: Color.fromHex("#000000"),
+    text: `Car${carId}`,
+    xoffset: 0,
+    yoffset: 8,
+    font: {  // autocasts as new Font()
+      size: 10,
+      family: 'Arial',
+      weight: "normal"
+    }
+  };
+
+  const textGraphic = new Graphic({
+    attributes: { vrpCarId: carId },
+    geometry: pt.clone(),
+    symbol: textSymbol
+  });
+
+  return [carGraphic, textGraphic];
 }
 
 function createEdgeLineGraphic(v1: UDGraphVertex, v2: UDGraphVertex, e: IGraphEdge, color: Color): Graphic {
@@ -195,11 +214,11 @@ function createPointByLocationAndSpatialRef(location: number[], spatialRef: any)
 }
 
 function doRoutePathMovingAnimation(
-  pointGraphic: Graphic,
+  pointGraphics: Graphic[],
   newLocation: Point,
   spatialRef: any): Promise<any> {
 
-    const startPoint = pointGraphic.geometry as Point,
+    const startPoint = pointGraphics[0].geometry as Point,
     endPoint = newLocation,
     startLon = startPoint.longitude, startLat = startPoint.latitude,
     startX = startPoint.x, startY = startPoint.y,
@@ -227,7 +246,7 @@ function doRoutePathMovingAnimation(
 
       if(frameIndex < totalFrames && (curX < endX || curY < endY)) {
         // only do next move if frameIndex not reach end and x,y direction not exceed destination position
-        movePoint([pointGraphic], curX, curY, spatialRef).then(()=> {
+        movePoint(pointGraphics, curX, curY, spatialRef).then(()=> {
           singleFrameCallback(frameIndex + 1);
         });
       } else {
@@ -238,11 +257,11 @@ function doRoutePathMovingAnimation(
     singleFrameCallback(0); // start animation frames
   }).then(() => {
     // ensure the graphics reach last point (end position) at the end of animation
-    return movePoint([pointGraphic], endX, endY, spatialRef);
+    return movePoint(pointGraphics, endX, endY, spatialRef);
   });
 }
 
-export function animateSingleRoutePathMovement(pointGraphic: Graphic, trailGraphic: Graphic, path: Array<number[]>, spatialRef: any): Promise<any> {
+export function animateSingleRoutePathMovement(pointGraphics: Graphic[], trailGraphic: Graphic, path: Array<number[]>, spatialRef: any): Promise<any> {
   if (!path || path.length === 0) {
     return Promise.resolve(null);
   }
@@ -253,7 +272,7 @@ export function animateSingleRoutePathMovement(pointGraphic: Graphic, trailGraph
       const curNode = path[i];
       const tgtPoint = createPointByLocationAndSpatialRef(curNode, spatialRef);
 
-      doRoutePathMovingAnimation(pointGraphic, tgtPoint, spatialRef).then(() => {
+      doRoutePathMovingAnimation(pointGraphics, tgtPoint, spatialRef).then(() => {
 
         // Append moved path segment into trailGraphic
         if (i > 0) {
@@ -279,7 +298,7 @@ export function animateSingleRoutePathMovement(pointGraphic: Graphic, trailGraph
   });
 }
 
-export function animateTraverseByRoutePaths(pointGraphic: Graphic, trailGraphic: Graphic, routeResult: IStaticRouteResult): Promise<any> {
+export function animateTraverseByRoutePaths(pointGraphics: Graphic[], trailGraphic: Graphic, routeResult: IStaticRouteResult): Promise<any> {
   if (!routeResult || !routeResult.paths || routeResult.paths.length === 0) {
     return Promise.resolve(null);
   }
@@ -290,7 +309,7 @@ export function animateTraverseByRoutePaths(pointGraphic: Graphic, trailGraphic:
   return new Promise(resolve => {
     function  traverseOnePath(i: number) {
       const curPath = paths[i];
-      animateSingleRoutePathMovement(pointGraphic, trailGraphic, curPath, spatialRef).then(() => {
+      animateSingleRoutePathMovement(pointGraphics, trailGraphic, curPath, spatialRef).then(() => {
         if (i >= paths.length - 1) {
           resolve(null);
         } else {
