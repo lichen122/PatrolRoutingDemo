@@ -140,6 +140,10 @@ export function vrp(startPoints:any[], allStops:any[]):Promise<any>{
         "time_attributes":"Time",
         "f": "pjson",
         "default_date": 1355212800000,
+        "route_line_simplification_tolerance": {
+            "distance": 1,
+            "units": "esriMeters"
+        }
     }
 
     return processor.submitJob(params).then(jobInfo=>{
