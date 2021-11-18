@@ -15,6 +15,7 @@ import TileLayer from "@arcgis/core/layers/TileLayer";
 import Graphic from "@arcgis/core/Graphic";
 import Color from "@arcgis/core/Color";
 import Point from "@arcgis/core/geometry/Point";
+import Polyline from "@arcgis/core/geometry/Polyline";
 import { whenOnce, pausable } from "@arcgis/core/core/watchUtils";
 import Basemap from "@arcgis/core/Basemap";
 import BasemapGallery from "@arcgis/core/widgets/BasemapGallery";
@@ -250,7 +251,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const self = this;
 
     if (routeResult && layer) {
-      const pathsGeometry = routeResult.route.geometry;
+      const pathsGeometry = routeResult.route.geometry as Polyline;
 
       return animateTraverseByRoutePaths(pointGraphics, trailGraphic, pathsGeometry);
     }
@@ -343,6 +344,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     console.debug(`Gonna compute VRP Route for ${carNum} cars`);
+
 
   }
 

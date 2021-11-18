@@ -298,7 +298,7 @@ export function animateSingleRoutePathMovement(pointGraphics: Graphic[], trailGr
   });
 }
 
-export function animateTraverseByRoutePaths(pointGraphics: Graphic[], trailGraphic: Graphic, routeResult: IStaticRouteResult): Promise<any> {
+export function animateTraverseByRoutePaths(pointGraphics: Graphic[], trailGraphic: Graphic, routeResult: Polyline): Promise<any> {
   if (!routeResult || !routeResult.paths || routeResult.paths.length === 0) {
     return Promise.resolve(null);
   }
