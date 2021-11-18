@@ -351,7 +351,7 @@ export class AppComponent implements OnInit, OnDestroy {
     solveAnimationLayer.removeAll();
 
 	  self.activeVrpVehicleBtnId = 0; // Deselect VRP Vehicle Button
-    const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHead === true);
+    const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHeadNode !== true); // Find non-Head vrp graphics (path graphics)
     if (vrpPathAnimationGraphics.length > 0) {
       vrpAnimationLayer.graphics.removeMany(vrpPathAnimationGraphics);
     }
