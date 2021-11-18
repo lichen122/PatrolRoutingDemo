@@ -305,10 +305,19 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const self = this,
       prevVrpVehicleId = self.activeVrpVehicleBtnId,
-      solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer;
-      self.isSolvingInProgress = false;
-      self.isInSolvingMode = false;
-      solveAnimationLayer.removeAll();
+      solveAnimationLayer = self._map?.layers.find(l => l.id === "solveAnimationLayer") as GraphicsLayer,
+      vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
+      stopsLayer = self._map?.layers.find(l => l.id === "stopsSolveLayer") as GraphicsLayer;
+
+    self.isSolvingInProgress = false;
+    self.isInSolvingMode = false;
+    solveAnimationLayer.removeAll();
+    const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHeadNode !== true); // Find non-Head vrp graphics (path graphics)
+    if (vrpPathAnimationGraphics.length > 0) {
+      vrpAnimationLayer.graphics.removeMany(vrpPathAnimationGraphics);
+    }
+    stopsLayer.removeAll();
+
 
     if (prevVrpVehicleId === vrpVehicleId) {
       self.activeVrpVehicleBtnId = 0; // Deactivte current selected vrp button

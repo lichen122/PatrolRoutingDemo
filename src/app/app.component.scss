@@ -34,6 +34,10 @@
   .vrp-vehicles-toolbar {
     display: flex;
 
+    &.disabled {
+      pointer-events: none;
+    }
+
     .add-vrp-vehicle {
       width: 25px;
       height: 25px;

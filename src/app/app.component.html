@@ -9,11 +9,11 @@
     </li>
     <li>
       <h2>Esri VRP Test</h2>
-      <div class="vrp-vehicles-toolbar">
+      <div class="vrp-vehicles-toolbar" [class.disabled]="isSolvingInProgress">
         <div (click)="activateVRPVehicleClick($event, 1)" class="add-vrp-vehicle" [class.active]="activeVrpVehicleBtnId === 1" title="Add Police Vehicle1" ></div>
         <div (click)="activateVRPVehicleClick($event, 2)" class="add-vrp-vehicle" [class.active]="activeVrpVehicleBtnId === 2" title="Add Police Vehicle2" ></div>
         <div (click)="activateVRPVehicleClick($event, 3)" class="add-vrp-vehicle" [class.active]="activeVrpVehicleBtnId === 3" title="Add Police Vehicle3" ></div>
-        <button class="control-panel-btn" (click)="computeVRPRoute($event)" >Compute VRP Route</button>
+        <button class="control-panel-btn" (click)="computeVRPRoute($event)" [disabled]="isSolvingInProgress" >Compute VRP Route</button>
       </div>
 
 
