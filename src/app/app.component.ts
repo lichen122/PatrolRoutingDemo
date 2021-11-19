@@ -87,36 +87,42 @@ export class AppComponent implements OnInit, OnDestroy {
     view.popup.collapseEnabled = false; // disable popup collapse
 
     // Add Layers into map
-    var pathSolveLayer = new GraphicsLayer({
+    const pathSolveLayer = new GraphicsLayer({
       id: "pathSolveLayer",
       title: "PathSolve",
       visible: true,
     });
 
-    var stopsSolveLayer = new GraphicsLayer({
+    const stopsSolveLayer = new GraphicsLayer({
       id: "stopsSolveLayer",
       title: "stopsSolve",
       visible: true,
     });
 
-    var streetsLayer = new FeatureLayer({
+    const streetsLayer = new FeatureLayer({
         id: "streetsLayer",
         url:arcgisServerUrl+"Patrol/PatrolStreetsAndStops/MapServer/2"
     });
 
-    var solveAnimationLayer = new GraphicsLayer({
+    const solveAnimationLayer = new GraphicsLayer({
       id: "solveAnimationLayer",
       title: "solveAnimation",
       visible: true,
     });
 
-    var vrpAnimationLayer = new GraphicsLayer({
+    const vrpAnimationLayer = new GraphicsLayer({
       id: "vrpAnimationLayer",
       title: "vrpAnimation",
       visible: true,
     });
 
-    this._map?.layers.addMany([streetsLayer,solveAnimationLayer, vrpAnimationLayer, pathSolveLayer,stopsSolveLayer]);
+	const vehicleHeadNodeLayer = new GraphicsLayer({
+		id: "vehicleHeadNodeLayer",
+		title: "vehicleHeadNode",
+		visible: true,
+	});
+
+    this._map?.layers.addMany([streetsLayer,solveAnimationLayer, vrpAnimationLayer, pathSolveLayer,stopsSolveLayer, vehicleHeadNodeLayer]);
 
     // Bind map events
     view.on("click", self.onMapClick.bind(self));
@@ -214,16 +220,19 @@ export class AppComponent implements OnInit, OnDestroy {
     const pathLayer = self._map?.layers.find(l=> l.id === "pathSolveLayer") as GraphicsLayer;
     const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
     const solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer;
+	const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
 
     //clear graphics
     pathLayer.graphics.removeAll();
     stopsLayer.graphics.removeAll();
     solveAnimationLayer.graphics.removeAll();
+	vehicleHeadNodeLayer.graphics.removeAll();
 
     // Add a new Graphic for the police vehicle
     const pointGraphic = createPathAnimationPointGraphic(mPoint, Color.fromHex("#888800"));
     const trailGraphic = createPathAnimationTrailGraphic(mPoint, Color.fromHex("#888800"));
-    solveAnimationLayer.addMany([pointGraphic, trailGraphic]);
+    solveAnimationLayer.addMany([trailGraphic]);
+	vehicleHeadNodeLayer.addMany([pointGraphic]);
 
     let clickedStop = {
         geometry:mPoint,
@@ -293,8 +302,11 @@ export class AppComponent implements OnInit, OnDestroy {
     self.isInSolvingMode = !preSolvingMode;
 
     const vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
+	  const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+
     self.activeVrpVehicleBtnId = 0;
     vrpAnimationLayer.removeAll();
+	vehicleHeadNodeLayer.removeAll();
   }
 
   activateVRPVehicleClick(evt: any, vrpVehicleId: number): void {
@@ -307,11 +319,20 @@ export class AppComponent implements OnInit, OnDestroy {
       prevVrpVehicleId = self.activeVrpVehicleBtnId,
       solveAnimationLayer = self._map?.layers.find(l => l.id === "solveAnimationLayer") as GraphicsLayer,
       vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
-      stopsLayer = self._map?.layers.find(l => l.id === "stopsSolveLayer") as GraphicsLayer;
+      stopsLayer = self._map?.layers.find(l => l.id === "stopsSolveLayer") as GraphicsLayer,
+      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
     solveAnimationLayer.removeAll();
+
+    // Try removing non-vrp vehicle nodes
+    const nonVrpVehicleGraphics = vehicleHeadNodeLayer.graphics.filter(g => !g.attributes.vrpCarId);
+    if (nonVrpVehicleGraphics.length > 0) {
+      vehicleHeadNodeLayer.graphics.removeMany(nonVrpVehicleGraphics);
+    }
+
+    // Try removing previous animation paths
     const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHeadNode !== true); // Find non-Head vrp graphics (path graphics)
     if (vrpPathAnimationGraphics.length > 0) {
       vrpAnimationLayer.graphics.removeMany(vrpPathAnimationGraphics);
@@ -334,12 +355,13 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const vrpLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
-    if (vrpLayer) {
-      let carGraphics: Graphic[] = vrpLayer.graphics.filter(g => g.attributes.vrpCarId === carId).toArray();
+    const  vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+    if (vehicleHeadNodeLayer) {
+
+      let carGraphics: Graphic[] = vehicleHeadNodeLayer.graphics.filter(g => g.attributes.vrpCarId === carId).toArray();
       if (!carGraphics || carGraphics.length === 0) {
         carGraphics = createVRPVehicleGraphics(carId, pt);
-        vrpLayer.graphics.addMany(carGraphics);
+        vehicleHeadNodeLayer.graphics.addMany(carGraphics);
       } else {
         carGraphics.forEach(cg => {
           cg.set("geometry", pt.clone());
@@ -353,7 +375,8 @@ export class AppComponent implements OnInit, OnDestroy {
     const self = this,
       solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer,
       vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
-      stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
+      stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer,
+	  vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
@@ -368,9 +391,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
 
     let carNum = 0;
-    const car1Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 1).toArray();
-    const car2Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 2).toArray();
-    const car3Graphics = vrpAnimationLayer.graphics.filter(g => g.attributes.vrpCarId === 3).toArray();
+    const car1Graphics = vehicleHeadNodeLayer.graphics.filter(g => g.attributes.vrpCarId === 1).toArray();
+    const car2Graphics = vehicleHeadNodeLayer.graphics.filter(g => g.attributes.vrpCarId === 2).toArray();
+    const car3Graphics = vehicleHeadNodeLayer.graphics.filter(g => g.attributes.vrpCarId === 3).toArray();
 
     let carGraphicsList: Array<Graphic[]> = [];
     if (car1Graphics.length > 0) { carGraphicsList.push(car1Graphics); carNum++;}
@@ -410,7 +433,7 @@ export class AppComponent implements OnInit, OnDestroy {
       if(routeResult.stops&&routeResult.stops.length>0){
         for (let index = 0; index < routeResult.stops.length; index++) {
             let stop = routeResult.stops[index];
-            stopsLayer.graphics.add(self.createStopGraphic(stop.geometry, "#888800"));        
+            stopsLayer.graphics.add(self.createStopGraphic(stop.geometry, "#888800"));
             stopsLayer.graphics.add(self.createStopLabelGraphic(stop.geometry, stop.attributes.Sequence));
 
             if(index!=0 && stop.attributes.Name.indexOf("mid_")>=0){
