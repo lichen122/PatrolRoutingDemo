@@ -230,26 +230,23 @@ export class AppComponent implements OnInit, OnDestroy {
 
     console.log(`Clicked MapPoint: {longitude: ${mPoint.longitude}, latitude: ${mPoint.latitude}}, ScreenPoint: (x: ${sPoint.x}, y: ${sPoint.y})`);
 
-    self._view?.hitTest(sPoint).then(resp => {
-      if (resp.results.length > 0) {
-        const hitGraphicsInStreetsLayer = resp.results.filter(r => {
-          return r.graphic.layer.id === "streetsLayer";
-        });
+    // self._view?.hitTest(sPoint).then(resp => {
+    //   if (resp.results.length > 0) {
+    //     const hitGraphicsInStreetsLayer = resp.results.filter(r => {
+    //       return r.graphic.layer.id === "streetsLayer";
+    //     });
 
-        if (hitGraphicsInStreetsLayer[0] && hitGraphicsInStreetsLayer[0].graphic) {
-          if (self.isInSolvingMode && !self.isSolvingInProgress) {
-            self.SolveAndDraw(mPoint);
-          }
+    //     if (hitGraphicsInStreetsLayer[0] && hitGraphicsInStreetsLayer[0].graphic) {
+    if (self.isInSolvingMode && !self.isSolvingInProgress) {
+        self.SolveAndDraw(mPoint);
+    }
 
-          if (self.activeVrpVehicleBtnId >= 1 && self.activeVrpVehicleBtnId <=3) {
-            self.tryAddVRPVehicleOnMap(mPoint);
-          }
-        }
-      }
-    });
-
-
-
+    if (self.activeVrpVehicleBtnId >= 1 && self.activeVrpVehicleBtnId <=3) {
+        self.tryAddVRPVehicleOnMap(mPoint);
+    }
+    //     }
+    //   }
+    // });
   }
 
   SolveAndDraw(mPoint:Point): Promise<any> {
