@@ -5,7 +5,8 @@
     <li>
       <h2>Esri Solve Test</h2>
       <Button class="control-panel-btn" (click)="solveRouteClick($event)" [disabled]="isSolvingInProgress" >{{isInSolvingMode ? "Stop Solving" : "Start Solving"}}</Button>
-      <button class="control-panel-btn" (click)="runTest($event)">Test</button>
+      <!-- <button class="control-panel-btn" (click)="runTest($event)">Test</button> -->
+      <button class="control-panel-btn" (click)="drawZone()" >{{isInDrawingZoneMode ? "Stop Drawing Zone" : "Start Drawing Zone"}}</button>
     </li>
     <li>
       <h2>Esri VRP Test</h2>

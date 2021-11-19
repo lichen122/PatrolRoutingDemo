@@ -30,6 +30,9 @@ import { findEularianTour, IEularianGraphEdge } from "../graphHelpers/EularianPa
 import TextSymbol from '@arcgis/core/symbols/TextSymbol';
 import SimpleMarkerSymbol from '@arcgis/core/symbols/SimpleMarkerSymbol';
 import { staticRouteResult } from 'src/mapData/staticEsriRouteResult';
+import SketchViewModel from '@arcgis/core/widgets/Sketch/SketchViewModel';
+import SimpleFillSymbol from '@arcgis/core/symbols/SimpleFillSymbol';
+import * as geometryEngine from "@arcgis/core/geometry/geometryEngine";
 
 
 @Component({
@@ -40,10 +43,12 @@ import { staticRouteResult } from 'src/mapData/staticEsriRouteResult';
 export class AppComponent implements OnInit, OnDestroy {
   public _map: ArcGISMap | undefined;
   public _view: MapView | undefined;
+  public _sketchTool: SketchViewModel | undefined;
   public _cppGraph: UDGraph | undefined;
   public _allStops: any[] = [];
   public isInSolvingMode: boolean = false;
   public isSolvingInProgress: boolean = false;
+  public isInDrawingZoneMode : boolean = false; 
   public isLoadingData: boolean = false;
 
   public activeVrpVehicleBtnId: number = 0;
@@ -122,7 +127,32 @@ export class AppComponent implements OnInit, OnDestroy {
 		visible: true,
 	});
 
-    this._map?.layers.addMany([streetsLayer,solveAnimationLayer, vrpAnimationLayer, pathSolveLayer,stopsSolveLayer, vehicleHeadNodeLayer]);
+    const drawPolygonLayer = new GraphicsLayer({
+      id: "drawPolygonLayer",
+      title: "drawPolygon",
+      visible: true,
+    });
+
+
+    this._map?.layers.addMany([streetsLayer,solveAnimationLayer, vrpAnimationLayer, pathSolveLayer, stopsSolveLayer, drawPolygonLayer, vehicleHeadNodeLayer]);
+
+    // Initialize sketchtool for drawing zone
+    const sketchTool = new SketchViewModel({
+        view: view,
+        layer: self._map?.layers.find(l => l.id === "drawPolygonLayer") as GraphicsLayer,
+        updateOnGraphicClick: false,
+        defaultUpdateOptions: { // set the default options for the update operations
+            toggleToolOnClick: false // only reshape operation will be enabled
+        },
+        polygonSymbol:new SimpleFillSymbol({
+            color: [18, 89, 208, 0.3],
+            outline: {
+                color: [18, 89, 208, 0.6],
+                width: 1,
+            }
+        })
+    });
+    self._sketchTool = sketchTool;
 
     // Bind map events
     view.on("click", self.onMapClick.bind(self));
@@ -220,7 +250,8 @@ export class AppComponent implements OnInit, OnDestroy {
     const pathLayer = self._map?.layers.find(l=> l.id === "pathSolveLayer") as GraphicsLayer;
     const stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer;
     const solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer;
-	const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+    const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+    const drawPolygonLayer = self._map?.layers.find(l => l.id ==="drawPolygonLayer") as GraphicsLayer;
 
     //clear graphics
     pathLayer.graphics.removeAll();
@@ -246,7 +277,12 @@ export class AppComponent implements OnInit, OnDestroy {
     self.isLoadingData = true;
     self.isSolvingInProgress = true;
 
-       return solve(mPoint,[clickedStop].concat(self._allStops)).then(function(routeResult){
+    let stops = self._allStops;
+    if(drawPolygonLayer.graphics.length>0){
+        let selectedZone = geometryEngine.union(drawPolygonLayer.graphics.map(g=>g.geometry).toArray());
+        stops = self._allStops.filter(s=>geometryEngine.intersects(s.geometry, selectedZone));
+    }
+    return solve(mPoint,[clickedStop].concat(stops)).then(function(routeResult){
         if(routeResult){
           solvedResult = routeResult;
             if(routeResult.route&&routeResult.route.geometry){
@@ -302,11 +338,11 @@ export class AppComponent implements OnInit, OnDestroy {
     self.isInSolvingMode = !preSolvingMode;
 
     const vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer;
-	  const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+    const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
 
     self.activeVrpVehicleBtnId = 0;
     vrpAnimationLayer.removeAll();
-	vehicleHeadNodeLayer.removeAll();
+    vehicleHeadNodeLayer.removeAll();
   }
 
   activateVRPVehicleClick(evt: any, vrpVehicleId: number): void {
@@ -355,9 +391,8 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const  vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+    const vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
     if (vehicleHeadNodeLayer) {
-
       let carGraphics: Graphic[] = vehicleHeadNodeLayer.graphics.filter(g => g.attributes.vrpCarId === carId).toArray();
       if (!carGraphics || carGraphics.length === 0) {
         carGraphics = createVRPVehicleGraphics(carId, pt);
@@ -376,13 +411,13 @@ export class AppComponent implements OnInit, OnDestroy {
       solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer,
       vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
       stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer,
-	  vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
     solveAnimationLayer.removeAll();
 
-	  self.activeVrpVehicleBtnId = 0; // Deselect VRP Vehicle Button
+    self.activeVrpVehicleBtnId = 0; // Deselect VRP Vehicle Button
     const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHeadNode !== true); // Find non-Head vrp graphics (path graphics)
     if (vrpPathAnimationGraphics.length > 0) {
       vrpAnimationLayer.graphics.removeMany(vrpPathAnimationGraphics);
@@ -488,6 +523,23 @@ export class AppComponent implements OnInit, OnDestroy {
     return Promise.all(promises).then(function(){
         return;
     });
+  }
+
+  drawZone(){
+    const self = this;
+    if(self.isInDrawingZoneMode){
+        return self.stopDrawPolygon();
+    }
+    self.isInDrawingZoneMode = true;
+    const drawPolygonLayer = self._map?.layers.find(l => l.id ==="drawPolygonLayer") as GraphicsLayer;
+    drawPolygonLayer.graphics.removeAll();
+    self._sketchTool?.create("polygon", { mode: "click" });
+  }
+
+  stopDrawPolygon(){
+    const self = this;
+    self.isInDrawingZoneMode = false;
+    self._sketchTool?.cancel();
   }
 
   getColors(num:number):string[]{
