@@ -79,10 +79,10 @@ export function solve(startPoint:Point, allStops:any[]): Promise<any> {
   });
 }
 
-export function getCrossTimes(stop:any, pathGeometries:Polyline[]):number{
+export function getCrossTimes(midPoint:any, pathGeometries:Polyline[]):number{
     let crossTimes = 0;
     pathGeometries.forEach(path=>{
-        let buffer = geometryEngine.buffer(stop.geometry,0.2,"meters");
+        let buffer = geometryEngine.buffer(midPoint,0.2,"meters");
         let intersection = geometryEngine.intersect(buffer, path) as Polyline; 
         crossTimes += intersection?intersection.paths.length:0;
     });

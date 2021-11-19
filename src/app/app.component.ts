@@ -406,44 +406,15 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   drawSolvedStops(routeResult:any,stopsLayer:GraphicsLayer):void{
+      const self = this;
       if(routeResult.stops&&routeResult.stops.length>0){
         for (let index = 0; index < routeResult.stops.length; index++) {
             let stop = routeResult.stops[index];
-            let stopGraphic = new Graphic({
-                geometry:stop.geometry,
-                symbol:new SimpleMarkerSymbol({
-                    style: "circle",
-                    color: "#888800",
-                    size:  16,
-                    outline: {
-                        type: "simple-line",
-                        style: "solid",
-                        color: "black",
-                        width: 2
-                    }
-                })
-            });
-            stopsLayer.graphics.add(stopGraphic);
-            let stopLabelGraphic = new Graphic({
-                symbol:new TextSymbol({
-                    text:stop.attributes.Sequence,
-                    color:"white",
-                }),
-                geometry:stop.geometry
-            });
-            stopsLayer.graphics.add(stopLabelGraphic);
+            stopsLayer.graphics.add(self.createStopGraphic(stop.geometry, "#888800"));        
+            stopsLayer.graphics.add(self.createStopLabelGraphic(stop.geometry, stop.attributes.Sequence));
 
             if(index!=0 && stop.attributes.Name.indexOf("mid_")>=0){
-                let crossTimesGraphic = new Graphic({
-                    symbol:new TextSymbol({
-                        text:getCrossTimes(stop, [routeResult.route.geometry]).toString(),
-                        color:"black",
-                        xoffset: 15,
-                        yoffset: 15,
-                    }),
-                    geometry:stop.geometry
-                });
-                stopsLayer.graphics.add(crossTimesGraphic);
+                stopsLayer.graphics.add(self.createCrossTimeGraphic([routeResult.route.geometry], stop.geometry));
             }
         }
     }
@@ -471,17 +442,8 @@ export class AppComponent implements OnInit, OnDestroy {
         let stopLabelGraphic = self.createStopLabelGraphic(stop.geometry, stop.attributes.Sequence);
         stopsLayer.graphics.add(stopLabelGraphic);
 
-        if(stop.attributes.Sequence!=1 && stop.attributes.Name.indexOf("mid_")>=0){
-            let crossTimesGraphic = new Graphic({
-                symbol:new TextSymbol({
-                    text:getCrossTimes(stop, routes.map(r=>r.geometry)).toString(),
-                    color:"black",
-                    xoffset: 15,
-                    yoffset: 15,
-                }),
-                geometry:stop.geometry
-            });
-            stopsLayer.graphics.add(crossTimesGraphic);
+        if(stop.attributes.Name.indexOf("mid_")>=0){
+            stopsLayer.graphics.add(self.createCrossTimeGraphic(routes.map(r=>r.geometry), stop.geometry));
         }
     }
   }
@@ -534,7 +496,7 @@ export class AppComponent implements OnInit, OnDestroy {
                 symbol:new SimpleMarkerSymbol({
                     style: "circle",
                     color: color,
-                    size:  16,
+                    size:  20,
                     outline: {
                         type: "simple-line",
                         style: "solid",
@@ -550,8 +512,26 @@ export class AppComponent implements OnInit, OnDestroy {
                 symbol:new TextSymbol({
                     text:sequence.toString(),
                     color:"white",
+                    yoffset:-5,
+                    font: {  // autocasts as new Font()
+                        size: 13,
+                        family: "Josefin Slab",
+                        weight: "bold"
+                    }
                 }),
                 geometry:stopGeometry
         });
+  }
+
+  createCrossTimeGraphic(routeGeometries:Polyline[], midPoint:Point){
+    return new Graphic({
+        symbol:new TextSymbol({
+            text:getCrossTimes(midPoint, routeGeometries).toString(),
+            color:"black",
+            xoffset: 15,
+            yoffset: 15,
+        }),
+        geometry:midPoint
+    });
   }
 }
