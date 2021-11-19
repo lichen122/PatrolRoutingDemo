@@ -6,7 +6,7 @@
       <h2>Esri Solve Test</h2>
       <Button class="control-panel-btn" (click)="solveRouteClick($event)" [disabled]="isSolvingInProgress" >{{isInSolvingMode ? "Stop Solving" : "Start Solving"}}</Button>
       <!-- <button class="control-panel-btn" (click)="runTest($event)">Test</button> -->
-      <button class="control-panel-btn" (click)="drawZone()" >{{isInDrawingZoneMode ? "Stop Drawing Zone" : "Start Drawing Zone"}}</button>
+      <button class="control-panel-btn" (click)="drawZoneClick()"[disabled]="isSolvingInProgress"  >{{isInDrawingZoneMode ? "Stop Drawing Zone" : "Start Drawing Zone"}}</button>
     </li>
     <li>
       <h2>Esri VRP Test</h2>
@@ -16,8 +16,12 @@
         <div (click)="activateVRPVehicleClick($event, 3)" class="add-vrp-vehicle" [class.active]="activeVrpVehicleBtnId === 3" title="Add Police Vehicle3" ></div>
         <button class="control-panel-btn" (click)="computeVRPRoute($event)" [disabled]="isSolvingInProgress" >Compute VRP Route</button>
       </div>
-
-
+    </li>
+    <li>
+        <label for="uturn">U-Turn Policy</label>
+        <select name="uturn" id="uturnSelector" [(ngModel)]="selectedUturn">
+            <option *ngFor="let item of uturns">{{item.name}}</option>
+        </select>
     </li>
   </ul>
 </div>

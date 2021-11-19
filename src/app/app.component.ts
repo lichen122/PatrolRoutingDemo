@@ -50,6 +50,25 @@ export class AppComponent implements OnInit, OnDestroy {
   public isSolvingInProgress: boolean = false;
   public isInDrawingZoneMode : boolean = false; 
   public isLoadingData: boolean = false;
+  public selectedUturn:string = "Allowed";
+  public uturns:any[] = [
+      {
+          name:"Allowed",
+          solveValue:"allow-backtrack",
+          vrpValue:"ALLOW_UTURNS",
+      }, {
+          name:"Allowed Only at Intersections and Dead Ends",
+          solveValue:"at-dead-ends-and-intersections",
+          vrpValue:"ALLOW_DEAD_ENDS_AND_INTERSECTIONS_ONLY",
+      }, {
+          name:"Allowed Only at Dead Ends",
+          solveValue:"at-dead-ends-only",
+          vrpValue:"ALLOW_DEAD_ENDS_ONLY",
+      }, {
+          name:"Not Allowed",
+          solveValue:"no-backtrack",
+          vrpValue:"NO_UTURNS",
+      }];
 
   public activeVrpVehicleBtnId: number = 0;
 
@@ -286,7 +305,9 @@ export class AppComponent implements OnInit, OnDestroy {
         let selectedZone = geometryEngine.union(drawPolygonLayer.graphics.map(g=>g.geometry).toArray());
         stops = self._allStops.filter(s=>geometryEngine.intersects(s.geometry, selectedZone));
     }
-    return solve(mPoint,[clickedStop].concat(stops)).then(function(routeResult){
+
+    let uturnPolicy:any = self.uturns.find(u=>u.name == self.selectedUturn).solveValue;
+    return solve(mPoint,[clickedStop].concat(stops), uturnPolicy).then(function(routeResult){
         if(routeResult){
           solvedResult = routeResult;
             if(routeResult.route&&routeResult.route.geometry){
@@ -360,11 +381,14 @@ export class AppComponent implements OnInit, OnDestroy {
       solveAnimationLayer = self._map?.layers.find(l => l.id === "solveAnimationLayer") as GraphicsLayer,
       vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
       stopsLayer = self._map?.layers.find(l => l.id === "stopsSolveLayer") as GraphicsLayer,
-      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer,
+      drawPolygonLayer = self._map?.layers.find(l => l.id ==="drawPolygonLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
+    self.isInDrawingZoneMode = false;
     solveAnimationLayer.removeAll();
+    drawPolygonLayer.removeAll();
 
     // Try removing non-vrp vehicle nodes
     const nonVrpVehicleGraphics = vehicleHeadNodeLayer.graphics.filter(g => !g.attributes.vrpCarId);
@@ -415,11 +439,14 @@ export class AppComponent implements OnInit, OnDestroy {
       solveAnimationLayer = self._map?.layers.find(l => l.id ==="solveAnimationLayer") as GraphicsLayer,
       vrpAnimationLayer = self._map?.layers.find(l => l.id === "vrpAnimationLayer") as GraphicsLayer,
       stopsLayer = self._map?.layers.find(l=> l.id === "stopsSolveLayer") as GraphicsLayer,
-      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer;
+      vehicleHeadNodeLayer = self._map?.layers.find(l => l.id === "vehicleHeadNodeLayer") as GraphicsLayer,
+      drawPolygonLayer = self._map?.layers.find(l => l.id ==="drawPolygonLayer") as GraphicsLayer;
 
     self.isSolvingInProgress = false;
     self.isInSolvingMode = false;
+    self.isInDrawingZoneMode = false;
     solveAnimationLayer.removeAll();
+    drawPolygonLayer.removeAll();
 
     self.activeVrpVehicleBtnId = 0; // Deselect VRP Vehicle Button
     const vrpPathAnimationGraphics = vrpAnimationLayer.graphics.filter(g => g.attributes.isHeadNode !== true); // Find non-Head vrp graphics (path graphics)
@@ -451,7 +478,8 @@ export class AppComponent implements OnInit, OnDestroy {
     console.debug(`Gonna compute VRP Route for ${carNum} cars`);
 
     const carPosGraphics = carGraphicsList.map(cgl => cgl[0]);
-    vrp(carPosGraphics,self._allStops).then(function(result){
+    let uturnPolicy:any = self.uturns.find(u=>u.name == self.selectedUturn).vrpValue;
+    vrp(carPosGraphics,self._allStops,uturnPolicy).then(function(result){
         vrpResult = result;
         self.drawVrpStops(vrpResult.stops, carColors, vrpResult.routes);
     }).then(() => {
@@ -529,7 +557,7 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
-  drawZone(){
+  drawZoneClick(){
     const self = this;
     if(self.isInDrawingZoneMode){
         return self.stopDrawPolygon();

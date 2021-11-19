@@ -46,7 +46,7 @@ export function getStops():Promise<any[]>{
     });
 }
 
-export function solve(startPoint:Point, allStops:any[]): Promise<any> {
+export function solve(startPoint:Point, allStops:any[], uturnPolicy:any): Promise<any> {
   if (!startPoint) {
     throw Error("Please provide a starting point to solve route!");
   }
@@ -56,7 +56,7 @@ export function solve(startPoint:Point, allStops:any[]): Promise<any> {
   const routeParams = new RouteParameters({
       stops:featureSet,
       impedanceAttribute:"Length",
-      restrictUTurns:"allow-backtrack",
+      restrictUTurns: uturnPolicy,
       returnStops:true,
       findBestSequence:true,
       preserveFirstStop:true
@@ -89,7 +89,7 @@ export function getCrossTimes(midPoint:any, pathGeometries:Polyline[]):number{
     return crossTimes;
 }
 
-export function vrp(startPoints:any[], allStops:any[]):Promise<any>{
+export function vrp(startPoints:any[], allStops:any[], uturnPolicy:any):Promise<any>{
     if (!startPoints || startPoints.length==0) {
         throw Error("Please provide a starting point to vrp!");
     }
@@ -146,7 +146,8 @@ export function vrp(startPoints:any[], allStops:any[]):Promise<any>{
         "route_line_simplification_tolerance": {
             "distance": 1,
             "units": "esriMeters"
-        }
+        },
+        'uturn_policy':uturnPolicy
     }
 
     return processor.submitJob(params).then(jobInfo=>{
