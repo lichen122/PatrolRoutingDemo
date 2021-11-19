@@ -152,6 +152,13 @@ export class AppComponent implements OnInit, OnDestroy {
             }
         })
     });
+    sketchTool.on("create", function(e)
+    {
+        if (e.state == "complete")
+        {
+            self.stopDrawPolygon();
+        }
+    });
     self._sketchTool = sketchTool;
 
     // Bind map events
